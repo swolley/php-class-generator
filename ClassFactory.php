@@ -48,10 +48,7 @@ class ClassFactory
 	public function getDefinition(bool $addHeader = true): string
 	{
 		$complete_string = ($addHeader ? $this->_fDefinition['header'] : '') . str_replace(self::PLACEHOLDER, implode($this->_fDefinition['methods']), $this->_fDefinition['class']);
-		$parsed_string = preg_replace('/(\s*\{\s*(?!\n\r?))(\s*\}\s*(?!\n\r?))/m', PHP_EOL.'$1'.PHP_EOL . PHP_EOL.'$2'.PHP_EOL.PHP_EOL, $complete_string);
-		//$complete_string = preg_replace('/([;])(?![\n|\r|\n\r])/m', PHP_EOL.'}'.PHP_EOL.PHP_EOL, $complete_string);
-		$formatted = (new Formatter)($complete_string);
-		return $parsed_string;
+		return (new Formatter)($complete_string);
 	}
 
 	/////////////////////////////////////////////// output ////////////////////////////////////////////////////

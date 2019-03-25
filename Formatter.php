@@ -32,7 +32,7 @@ class Formatter
 
 	public function __invoke(string $code) : string
 	{
-		if (substr($code, 0, 5) !== T_OPEN_TAG) {
+		if (mb_substr($code, 0, 5) !== T_OPEN_TAG) {
 			$code = '<?php ' . $code;
 		}
 
@@ -41,8 +41,6 @@ class Formatter
 		foreach ($rawTokens as $rawToken) {
 			$tokens[] = new Token($rawToken);
 		}
-
-		
 
 		$this->RETURN_BEFORE = array_merge($this->RETURN_BEFORE, self::MODIFIERS);
 		foreach (self::OPERATORS as $op) {
@@ -216,7 +214,7 @@ class Formatter
 		$i++;
 		$token = $tokens[$i];
 		while ($token->type == T_WHITESPACE) {
-			$this->_lineNo += substr($token->contents, "\n");
+			$this->_lineNo += mb_substr($token->contents, "\n");
 			$i++;
 			$token = $tokens[$i];
 		}
