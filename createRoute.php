@@ -35,18 +35,20 @@ unset($handle);
 echo PHP_EOL;
 
 try{
-	$route_factory = new ClassFactory($new_class_name);
-	$route_factory->setNamespace($namespace);
-	$route_factory->setUses($uses);
-	$route_factory->setInherits($full_parent_name);
+	$route_factory = (new ClassFactory)
+		->setName($new_class_name)
+		->setNamespace($namespace)
+		//->setUses($uses)
+		->setInherits($full_parent_name);
+
 	$route_factory->defineClass();
 	
 	unset($parent);
 	unset($uses);
 	unset($full_parent_name);
 
+	//$to_string = $route_factory->__toString();
 	$definition = $route_factory->getDefinition();
-	//$toString = $route_factory->__toString();
 	//$instance = $route_factory->getInstanceWhitoutConstructor();
 	//$file = $route_factory->writeOnFile('./');
 	

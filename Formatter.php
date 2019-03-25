@@ -3,8 +3,9 @@ namespace Swolley\ClassGenerator;
 
 class Token
 {
-	public $type;
-	public $contents;
+	public
+		$type,
+		$contents;
 
 	public function __construct($rawToken)
 	{
@@ -20,20 +21,22 @@ class Token
 
 class Formatter
 {
-	const OPERATORS = ['=', '.', '+', '-', '*', '/', '%', '||', '&&', '+=', '-=', '*=', '/=', '.=', '%=', '==', '!=', '<=', '>=', '<', '>', '===', '!=='];
-	const IMPORT_STATEMENTS = [T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE];
-	const CONTROL_STRUCTURES = [T_IF, T_ELSEIF, T_FOREACH, T_FOR, T_WHILE, T_SWITCH, T_ELSE];
-	const MODIFIERS = [T_PRIVATE, T_PUBLIC, T_PROTECTED, T_FINAL, T_STATIC];
+	const
+		OPERATORS = ['=', '.', '+', '-', '*', '/', '%', '||', '&&', '+=', '-=', '*=', '/=', '.=', '%=', '==', '!=', '<=', '>=', '<', '>', '===', '!=='],
+		IMPORT_STATEMENTS = [T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE],
+		CONTROL_STRUCTURES = [T_IF, T_ELSEIF, T_FOREACH, T_FOR, T_WHILE, T_SWITCH, T_ELSE],
+		MODIFIERS = [T_PRIVATE, T_PUBLIC, T_PROTECTED, T_FINAL, T_STATIC];
 
-	private $WHITESPACE_BEFORE = ['?', '{', T_DOUBLE_ARROW];
-	private $WHITESPACE_AFTER = [',', '?', T_DOUBLE_ARROW];
-	private $RETURN_BEFORE = [T_NAMESPACE];
-	private $RETURN_AFTER = [';', T_OPEN_TAG];
+	private
+		$WHITESPACE_BEFORE = ['?', '{', '=>'],
+		$WHITESPACE_AFTER = [',', '?', '=>'],
+		$RETURN_BEFORE = [T_NAMESPACE],
+		$RETURN_AFTER = [';', '<?php'];
 
-	public function __invoke(string $code) : string
+	public function __invoke(string $code): string
 	{
-		if (mb_substr($code, 0, 5) !== T_OPEN_TAG) {
-			$code = '<?php ' . $code;
+		if (mb_substr($code, 0, 5) !== '<?php') {
+			$code = '<?php' . PHP_EOL . $code;
 		}
 
 		$rawTokens = token_get_all($code);
@@ -49,44 +52,44 @@ class Formatter
 		}
 
 		//First pass - filter out unwanted tokens
-		self::filterUnwantedTokens($tokens);
+		$this->filterUnwantedTokens($tokens);
 
-		// Second pass - add whitespace
-		return $this->addWhitespaces($tokens);
+		// Second pass - add whitespaces and returns
+		return $this->parseCode($tokens);
 	}
 
 	/**
 	 * filter out unwanted tokens
 	 */
-	private static function filterUnwantedTokens(array &$tokens)
+	private function filterUnwantedTokens(array &$tokens)
 	{
 		$matching_ternary = false;
 		$filtered_tokens = [];
 		for ($i = 0, $n = count($tokens); $i < $n; $i++) {
 			$token = $tokens[$i];
-			if ($token->contents == '?') {
+			if ($token->contents === '?') {
 				$matching_ternary = true;
 			}
-			if (in_array($token->type, self::IMPORT_STATEMENTS) && self::nextToken($tokens, $i, $j)->contents == '(') {
+			if (in_array($token->type, self::IMPORT_STATEMENTS) && self::nextToken($tokens, $i, $j)->contents === '(') {
 				$filtered_tokens[] = $token;
-				if ($tokens[$i + 1]->type != T_WHITESPACE) {
+				if ($tokens[$i + 1]->type !== T_WHITESPACE) {
 					$filtered_tokens[] = new Token([T_WHITESPACE, ' ']);
 				}
 				$i = $j;
 				do {
 					$i++;
 					$token = $tokens[$i];
-					if ($token->contents != ')') {
+					if ($token->contents !== ')') {
 						$filtered_tokens[] = $token;
 					}
-				} while ($token->contents != ')');
-			} elseif ($token->type == T_ELSE && self::nextToken($tokens, $i, $j)->type == T_IF) {
+				} while ($token->contents !== ')');
+			} elseif ($token->type === T_ELSE && self::nextToken($tokens, $i, $j)->type === T_IF) {
 				$i = $j;
 				$filtered_tokens[] = new Token([T_ELSEIF, 'elseif']);
-			} elseif ($token->contents == ':') {
+			} elseif ($token->contents === ':') {
 				if ($matching_ternary) {
 					$matching_ternary = false;
-				} elseif ($tokens[$i - 1]->type == T_WHITESPACE) {
+				} elseif ($tokens[$i - 1]->type === T_WHITESPACE) {
 					array_pop($filtered_tokens); // Remove whitespace before
 				}
 				$filtered_tokens[] = $token;
@@ -98,115 +101,126 @@ class Formatter
 		$tokens = $filtered_tokens;
 	}
 
-	private function addWhitespaces(array &$tokens)
+	private function parseCode(array &$tokens)
 	{
-		$finalParsedCode = '';
-		$matchingTernary = false;
-		$doubleQuote = false;
+		$tabulators = 0;
+		$final_parsed_code = '';
+		$matching_ternary = false;
+		$double_quote = false;
 		for ($i = 0, $n = count($tokens); $i < $n; $i++) {
+			$current_parsed_token = '';
 			$token = $tokens[$i];
-			if ($token->contents == '?') {
-				$matchingTernary = true;
+			if ($token->contents === '?') {
+				$matching_ternary = true;
 			}
-			if ($token->contents == '"' && self::isAssocArrayVariable($i, 1) && $tokens[$i + 5]->contents == '"') {
-				/*
-				* Handle case where the only thing quoted is the assoc array variable.
-				* Eg. "$value[key]"
-				*/
+			if ($token->contents === '"' && self::isAssocArrayVariable($i, 1) && $tokens[$i + 5]->contents === '"') {
+				//Handle case where the only thing quoted is the assoc array variable. Eg. "$value[key]"
 				$quote = $tokens[$i++]->contents;
 				$var = $tokens[$i++]->contents;
-				$openSquareBracket = $tokens[$i++]->contents;
+				$open_square_bracket = $tokens[$i++]->contents;
 				$str = $tokens[$i++]->contents;
-				$closeSquareBracket = $tokens[$i++]->contents;
+				$close_square_bracket = $tokens[$i++]->contents;
 				$quote = $tokens[$i]->contents;
-				$finalParsedCode .= $var . "['" . $str . "']";
-				$doubleQuote = false;
+				$current_parsed_token .= $var . "['" . $str . "']";
+				$double_quote = false;
 				continue;
 			}
 
-			if(in_array($token->contents, $this->RETURN_BEFORE)) {
-				$finalParsedCode .= PHP_EOL;
+			//puts return before
+			if (in_array($token->type, $this->RETURN_BEFORE) || ($token->contents === '{' && !in_array($tokens[$i - 1]->type, self::CONTROL_STRUCTURES))) {
+				$current_parsed_token .= PHP_EOL;
 			}
 
-			if ($token->contents == '"') {
-				$doubleQuote = !$doubleQuote;
+			if ($token->contents === '"') {
+				$double_quote = !$double_quote;
 			}
-			if ($doubleQuote && $token->contents == '"' && self::isAssocArrayVariable($tokens, $i, 1)) {
+			if ($double_quote && $token->contents === '"' && self::isAssocArrayVariable($tokens, $i, 1)) {
 				// don't echo "
-			} elseif ($doubleQuote && self::isAssocArrayVariable($tokens, $i)) {
-				if ($tokens[$i - 1]->contents != '"') {
-					$finalParsedCode .= '" . ';
+			} elseif ($double_quote && self::isAssocArrayVariable($tokens, $i)) {
+				if ($tokens[$i - 1]->contents !== '"') {
+					$current_parsed_token .= '" . ';
 				}
 				$var = $token->contents;
-				$openSquareBracket = $tokens[++$i]->contents;
+				$open_square_bracket = $tokens[++$i]->contents;
 				$str = $tokens[++$i]->contents;
-				$closeSquareBracket = $tokens[++$i]->contents;
-				$finalParsedCode .= $var . "['" . $str . "']";
+				$close_square_bracket = $tokens[++$i]->contents;
+				$current_parsed_token .= $var . "['" . $str . "']";
 				if ($tokens[$i + 1]->contents != '"') {
-					$finalParsedCode .= ' . "';
+					$current_parsed_token .= ' . "';
 				} else {
 					$i++; // process "
-					$doubleQuote = false;
+					$double_quote = false;
 				}
-			} elseif ($token->type == T_STRING && $tokens[$i - 1]->contents == '[' && $tokens[$i + 1]->contents == ']') {
+			} elseif ($token->type === T_STRING && $tokens[$i - 1]->contents === '[' && $tokens[$i + 1]->contents === ']') {
 				if (preg_match('/[a-z_]+/', $token->contents)) {
-					$finalParsedCode .= "'" . $token->contents . "'";
+					$current_parsed_token .= "'" . $token->contents . "'";
 				} else {
-					$finalParsedCode .= $token->contents;
+					$current_parsed_token .= $token->contents;
 				}
-			} elseif ($token->type == T_ENCAPSED_AND_WHITESPACE || $token->type == T_STRING) {
-				$finalParsedCode .= $token->contents;
-			} elseif ($token->contents == '-' && in_array($tokens[$i + 1]->type, [T_LNUMBER, T_DNUMBER])) {
-				$finalParsedCode .= '-';
+			} elseif ($token->type === T_ENCAPSED_AND_WHITESPACE || $token->type === T_STRING) {
+				$current_parsed_token .= $token->contents;
+			} elseif ($token->contents === '-' && in_array($tokens[$i + 1]->type, [T_LNUMBER, T_DNUMBER])) {
+				$current_parsed_token .= '-';
 			} elseif (in_array($token->type, self::CONTROL_STRUCTURES)) {
-				$finalParsedCode .= $token->contents;
-				if ($tokens[$i + 1]->type != T_WHITESPACE) {
-					$finalParsedCode .= ' ';
+				$current_parsed_token .= $token->contents;
+				if ($tokens[$i + 1]->type !== T_WHITESPACE) {
+					$current_parsed_token .= ' ';
 				}
-			} elseif ($token->contents == '}') {
-				$finalParsedCode .= '}';
-				if($i + 1< count($tokens) && in_array($tokens[$i + 1]->type, self::CONTROL_STRUCTURES)){
-					$finalParsedCode .= ' ';
-				} elseif($i + 1< count($tokens)) {
-					$finalParsedCode .= PHP_EOL;
-					if($tokens[$i + 1]->contents !== '}') {
-						$finalParsedCode .= PHP_EOL;
+			} elseif ($token->contents === '}') {
+				$current_parsed_token .= '}';
+				if ($i + 1 < count($tokens) && in_array($tokens[$i + 1]->type, self::CONTROL_STRUCTURES)) {
+					$current_parsed_token .= ' ';
+				} elseif ($i + 1 < count($tokens)) {
+					$current_parsed_token .= PHP_EOL;
+					if ($tokens[$i + 1]->contents !== '}') {
+						$current_parsed_token .= PHP_EOL;
 					}
 				}
-			} elseif ($token->contents == '=' && $tokens[$i + 1]->contents == '&') {
+			} elseif ($token->contents === '=' && $tokens[$i + 1]->contents === '&') {
 				if ($tokens[$i - 1]->type != T_WHITESPACE) {
-					$finalParsedCode .= ' ';
+					$current_parsed_token .= ' ';
 				}
 				$i++; // match &
-				$finalParsedCode .= '=&';
-				if ($tokens[$i + 1]->type != T_WHITESPACE) {
-					$finalParsedCode .= ' ';
+				$current_parsed_token .= '=&';
+				if ($tokens[$i + 1]->type !== T_WHITESPACE) {
+					$current_parsed_token .= ' ';
 				}
-			} elseif ($token->contents == ':' && $matchingTernary) {
-				$matchingTernary = false;
-				if ($tokens[$i - 1]->type != T_WHITESPACE) {
-					$finalParsedCode .= ' ';
+			} elseif ($token->contents === ':' && $matching_ternary) {
+				$matching_ternary = false;
+				if ($tokens[$i - 1]->type !== T_WHITESPACE) {
+					$current_parsed_token .= ' ';
 				}
-				$finalParsedCode .= ':';
-				if ($tokens[$i + 1]->type != T_WHITESPACE) {
-					$finalParsedCode .= ' ';
+				$current_parsed_token .= ':';
+				if ($tokens[$i + 1]->type !== T_WHITESPACE) {
+					$current_parsed_token .= ' ';
 				}
-			} elseif (in_array($token->contents, $this->WHITESPACE_BEFORE) && $tokens[$i - 1]->type != T_WHITESPACE && in_array($token->contents, $this->WHITESPACE_AFTER) && $tokens[$i + 1]->type != T_WHITESPACE) {
-				$finalParsedCode .= ' ' . $token->contents . ' ';
-			} elseif (in_array($token->contents, $this->WHITESPACE_BEFORE) && $tokens[$i - 1]->type != T_WHITESPACE) {
-				$finalParsedCode .= ' ' . $token->contents;
-			} elseif (in_array($token->contents, $this->WHITESPACE_AFTER) && $tokens[$i + 1]->type != T_WHITESPACE) {
-				$finalParsedCode .= $token->contents . ' ';
+			} elseif (in_array($token->contents, $this->WHITESPACE_BEFORE) && $tokens[$i - 1]->type !== T_WHITESPACE && in_array($token->contents, $this->WHITESPACE_AFTER) && $tokens[$i + 1]->type !== T_WHITESPACE) {
+				$current_parsed_token .= ' ' . $token->contents . ' ';
+			} elseif (in_array($token->contents, $this->WHITESPACE_BEFORE) && $tokens[$i - 1]->type !== T_WHITESPACE) {
+				$current_parsed_token .= ' ' . $token->contents;
+			} elseif (in_array($token->contents, $this->WHITESPACE_AFTER) && $tokens[$i + 1]->type !== T_WHITESPACE) {
+				$current_parsed_token .= $token->contents . ' ';
 			} else {
-				$finalParsedCode .= $token->contents;
+				$current_parsed_token .= $token->contents;
 			}
 
-			if(in_array($token->contents, $this->RETURN_AFTER)) {
-				$finalParsedCode .= PHP_EOL;
+			$current_parsed_token = mb_substr($final_parsed_code, -2) === PHP_EOL . ' ' ? str_repeat("\t", $tabulators) . ltrim($current_parsed_token, ' ') : $current_parsed_token;
+			//adds return after
+			if (in_array($token->contents, $this->RETURN_AFTER)) {
+				$current_parsed_token .= PHP_EOL;
 			}
+
+			//if bracket increase or decrease tabulation
+			if ($token->contents === '{') {
+				$tabulators++;
+			} elseif ($token->contents === '}') {
+				$tabulators --;
+			}
+
+			$final_parsed_code .= $current_parsed_token;
 		}
 
-		return $finalParsedCode;
+		return $final_parsed_code;
 	}
 
 	/*private function skipWhitespace(&$tokens, int &$i)
@@ -220,23 +234,23 @@ class Formatter
 		}
 	}*/
 
-	private static function nextToken(array &$tokens, int &$i, int &$j) : array
+	private static function nextToken(array &$tokens, int &$i, int &$j): array
 	{
 		$j = $i;
 		do {
 			$j++;
 			$token = $tokens[$j];
-		} while ($token->type == T_WHITESPACE);
+		} while ($token->type === T_WHITESPACE);
 		return $token;
 	}
 
-	private static function isAssocArrayVariable(array &$tokens, int $i, int $offset = 0) : bool
+	private static function isAssocArrayVariable(array &$tokens, int $i, int $offset = 0): bool
 	{
 		$j = $i + $offset;
-		return $tokens[$j]->type == T_VARIABLE &&
-			$tokens[$j + 1]->contents == '[' &&
-			$tokens[$j + 2]->type == T_STRING &&
+		return $tokens[$j]->type === T_VARIABLE &&
+			$tokens[$j + 1]->contents === '[' &&
+			$tokens[$j + 2]->type === T_STRING &&
 			preg_match('/[a-z_]+/', $tokens[$j + 2]->contents) &&
-			$tokens[$j + 3]->contents == ']';
+			$tokens[$j + 3]->contents === ']';
 	}
 }

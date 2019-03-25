@@ -14,41 +14,54 @@ class ClassFactory
 	private $_fClass;
 	private $_fDefinition = [];
 
-	////////////////////////////////////////////////// constructor ////////////////////////////////////////////////////
-	public function __construct(string $name)
+	//////////////////////////////////////////////////// getter/setter /////////////////////////////////////////////////
+	public function setName(string $name)
 	{
-		if (empty($name)) {
-			throw new \Exception('cannot create class without a name');
+		if (!empty($name)) {
+			$this->_pName = ucfirst(trim($name));
 		}
 
-		$this->_pName = ucfirst($name);
+		return $this;
 	}
-	//////////////////////////////////////////////////// getter/setter /////////////////////////////////////////////////
+
 	public function setNamespace(string $name)
 	{
 		if (!empty($name)) {
-			$this->_pNamespace = ucwords($name, '\\');
+			$this->_pNamespace = ucwords(trim($name), '\\');
 		}
+
+		return $this;
 	}
 
 	public function setUses(array $usesList)
 	{
 		if (!empty($usesList)) {
-			$this->_pUses = $usesList;
+			$this->_pUses = array_map(function($use) {
+				return ucwords(trim($use), '\\');
+			}, $usesList);
 		}
+
+		return $this;
 	}
 
 	public function setInherits(string $name)
 	{
 		if (!empty($name)) {
-			$this->_pInherits = $name;
+			$this->_pInherits = ucwords(trim($name), '\\');
 		}
+
+		return $this;
 	}
 
-	public function getDefinition(bool $addHeader = true): string
+	/**
+	 * return class definition's code
+	 * @param	bool $$formatted	beautify code before return
+	 * @return	string	stringified php code
+	 */
+	public function getDefinition(bool $formatted = true): string
 	{
-		$complete_string = ($addHeader ? $this->_fDefinition['header'] : '') . str_replace(self::PLACEHOLDER, implode($this->_fDefinition['methods']), $this->_fDefinition['class']);
-		return (new Formatter)($complete_string);
+		$complete_string = $this->_fDefinition['header'] . str_replace(self::PLACEHOLDER, implode($this->_fDefinition['methods']), $this->_fDefinition['class']);
+		return $formatted ? (new Formatter)($complete_string) : $complete_string;
 	}
 
 	/////////////////////////////////////////////// output ////////////////////////////////////////////////////
@@ -69,12 +82,12 @@ class ClassFactory
 		return is_int($written_bytes);
 	}
 
-	public function getInstance(...$constructorParams)
+	public function getInstance(...$constructorParams): object
 	{
 		return ($this->evalDefinition())->newInstance(...$constructorParams);
 	}
 
-	public function getInstanceWhitoutConstructor()
+	public function getInstanceWhitoutConstructor(): object
 	{
 		return ($this->evalDefinition())->newInstanceWithoutConstructor();
 	}
@@ -85,10 +98,15 @@ class ClassFactory
      **/
 	public function defineClass()
 	{
+		if(!$this->_pName) {
+			throw new Exception("Can't create a class without a name");
+		}
+
 		$headerString = '';
 		$classString = '';
 		$constructorString = '';
 		$methods_list = [];
+		$extends = null;
 
 		//CLASS SIGNATURE
 		$classString = 'final class ' . $this->_pName;
@@ -99,27 +117,31 @@ class ClassFactory
 			}
 
 			$extends = new \ReflectionClass($this->_pInherits);
+			$extends_namespace = $extends->getNamespaceName();
+			$extends_namespace = empty($extends_namespace) ? '\\' . $extends->name : $extends_namespace;
+			if($extends_namespace !== $this->_pNamespace && !in_array($extends_namespace, $this->_pUses)) {
+				$this->_pUses[] = $extends_namespace;
+			}
+
 			//throws if parent class is final because cannot be inherited
 			if ($extends->isFinal() || $extends->isTrait()) {
 				throw new \Exception('Final classes and traits cannot be inherited.');
 			}
 
 			if (!$extends->isInterface()) {
-				$classString .= " extends ";
+				$classString .= ' extends ';
 				//CONSTRUCTOR
 				$constructorString = static::defineConstructor($extends);
 			} else {
-				$classString .= " implements ";
+				$classString .= ' implements ';
 			}
-			$classString .= $extends->name;
+			$classString .= $extends->getShortName();
 
 			//METHODS
 			$methods_list = static::defineDependentMethods($extends);
 		}
 
-		if (empty($constructorString)) {
-			$constructorString = 'public function __construct(){}';
-		}
+		$constructorString = static::defineConstructor($extends);
 
 		array_unshift($methods_list, $constructorString);
 
@@ -147,7 +169,7 @@ class ClassFactory
 
 		if ($this->_pUses) {
 			$header .= array_reduce($this->_pUses ? $this->_pUses : [], function ($total, $use) {
-				return $total += 'use ' . $use . ';';
+				return $total .= 'use ' . $use . ';';
 			}, '');
 		}
 
@@ -159,14 +181,15 @@ class ClassFactory
 	 * @param	\ReflectionClass    $inheritedClass		parent class
      * @return  string  			$definition 		stringified php code of constructor
      **/
-	private function defineConstructor(\ReflectionClass &$inheritedClass): string
+	private function defineConstructor(\ReflectionClass &$inheritedClass = null): string
 	{
-		$inherited_constructor = $inheritedClass->getConstructor();
-		$constructor_fDefinition = "\tpublic function __construct(" . static::defineParams($inherited_constructor) . '){';
-		$constructor_fDefinition .= "\t\tparent::__construct(" . static::defineParams($inherited_constructor, false, false) . ');';
-		$constructor_fDefinition .= "\t}";
+		if ($inheritedClass && !$inheritedClass->isInterface()) {	
+			$inherited_constructor = $inheritedClass->getConstructor();
+			$parent_constructor ='parent::__construct(' . static::defineParams($inheritedClass, $inherited_constructor, false, false) . ');';
+			return 'public function __construct(' . static::defineParams($inheritedClass, $inherited_constructor) . '){' . $parent_constructor . '}';
+		}
 
-		return $constructor_fDefinition;
+		return 'public function __construct(){}';
 	}
 
 	/**
@@ -178,7 +201,7 @@ class ClassFactory
 	{
 		return array_map(function ($method) {
 				//defines single method
-				return static::defineMethod($method);
+				return static::defineMethod($inheritedClass, $method);
 			}, 
 			$this->getParentMethods($inheritedClass)
 		);
@@ -202,33 +225,35 @@ class ClassFactory
 
 	/**
      * defines specified method of the parent class with modifiers and return type if found
+	 * @param   \ReflectionClass    $class         	method's class
      * @param   \ReflectionMethod   $method     parent method
      * @return  string              $definition stringified php code of passed method
      **/
-	private function defineMethod(\ReflectionMethod &$method): string
+	private function defineMethod(\ReflectionClass &$class, \ReflectionMethod &$method): string
 	{
 		$reflection_method = (new \ReflectionMethod($method->class, $method->name));
 
 		//removes abstract from modifier because implemented
 		$modifiers =  str_replace('abstract ', '', implode(' ', Reflection::getModifierNames($reflection_method->getModifiers())));
 		//defines method signature
-		$method_definition = "\t" . $modifiers . " function {$method->name}(" . static::defineParams($method) . ')';
+		$method_definition = $modifiers . ' function ' . $method->name . '(' . static::defineParams($class, $method) . ')';
 		//appends return type if exists
-		$method_definition .= $reflection_method->hasReturnType() ? " : {$reflection_method->getReturnType()} " : " \t{\t}";
+		$method_definition .= $reflection_method->hasReturnType() ? (': ' . $reflection_method->getReturnType()) : '{}';
 
 		return $method_definition;
 	}
 
 	/**
      * defines specified method's parameters list with default values if found
-     * @param   \ReflectionMethod    $method         parent method
+     * @param   \ReflectionClass    $class         	method's class
+     * @param   \ReflectionMethod   $method         parent method
      * @param   bool              	$defaultValues	optionally add default values to params if found
      * @param   bool              	$declaration	optionally add type and reference symbol to parameters (yes if declaration, no if call)
      * @return  string                              stringified php code of parameters
      **/
-	private function defineParams(\ReflectionMethod &$method, bool $defaultValues = true, bool $declaration = true): string
+	private function defineParams(\ReflectionClass &$class, \ReflectionMethod &$method, bool $defaultValues = true, bool $declaration = true): string
 	{
-		return trim(implode(', ', array_map(function ($param) use ($defaultValues, $declaration) {
+		return trim(implode(', ', array_map(function ($param) use ($class, $defaultValues, $declaration) {
 			if ($param->hasType()) {
 				$type = $param->getType();
 				if (!$type->isBuiltin()) {
@@ -240,30 +265,34 @@ class ClassFactory
 				'paramType' => $declaration && $param->hasType() ? $param->getType() . ' ' : '',
 				'isPassedByReference' => $declaration && $param->isPassedByReference() ? '&' : '',
 				'paramName' => '$' . $param->getName(),
-				'paramIsOptional' => $declaration && $param->isOptional() ? ' = ' : '',
-				'paramDefaultValue' => $declaration && $defaultValues && $param->isDefaultValueAvailable() ? (static::formatParamDefaultValue($param->getDefaultValue())) : ''
+				'paramIsOptional' => $declaration && !$class->isInternal() && $param->isOptional() ? '=' : '',
+				'paramDefaultValue' => $declaration && $defaultValues && !$class->isInternal() && $param->isDefaultValueAvailable() ? (static::formatParamDefaultValue($param->getDefaultValue())) : ''
 			]);
 		}, (new \ReflectionMethod($method->class, $method->name))->getParameters())));
 	}
 
 	/**
      * parse default value of passed parameter
-     * @param   mixed   $params param default value
+     * @param   mixed   $param	param default value
      * @return  string          stringified php code of default param's value
      **/
 	private static function formatParamDefaultValue($param): string
 	{
-		return str_replace(PHP_EOL, "", var_export($param, true));
+		return str_replace(PHP_EOL, '', var_export($param, true));
 	}
 
-	private function evalDefinition()
+	/**
+	 * return reflection class instance of created class
+	 * @return	\ReflectionClass	reflection class instance
+	 */
+	private function evalDefinition(): \ReflectionClass
 	{
 		if (!class_exists($this->_pName)) {
 			eval($this->getDefinition(false));
 		}
 
 		if (!$this->_fClass) {
-			$this->_fClass = new \ReflectionClass($this->_pName);
+			$this->_fClass = new \ReflectionClass($this->_pNamespace . '\\' . $this->_pName);
 		}
 
 		return $this->_fClass;
