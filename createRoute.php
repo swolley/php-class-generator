@@ -3,7 +3,7 @@ namespace Swolley\ClassGenerator;
 
 require_once('./vendor/autoload.php');
 require_once('./ClassFactory.php');
-require_once('./formatter.php');
+require_once('./Formatter.php');
 
 $handle = fopen ('php://stdin','r');
 
