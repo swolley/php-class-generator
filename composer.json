@@ -1,0 +1,13 @@
+{
+    "name": "swolley/php-class-generator",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "swolley",
+            "email": "myentity@inwind.it"
+        }
+    ],
+	"require": {
+    }
+}
