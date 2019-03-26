@@ -2,15 +2,14 @@
 namespace Swolley\ClassGenerator;
 
 require_once('./vendor/autoload.php');
-//require_once('./ClassFactory.php');
-//require_once('./Formatter.php');
+require_once('./ClassFactory.php');
+require_once('./Formatter.php');
 
 $handle = fopen ('php://stdin','r');
 
 $new_class_name = "";
 $parent = '';
 $full_parent_name = '';
-$uses = [];
 /////////////////////////////////// class name ////////////////////////////////////////
 
 do {
@@ -35,22 +34,23 @@ unset($handle);
 echo PHP_EOL;
 
 try{
-	$route_factory = (new ClassFactory)
-		->setName($new_class_name)
-		->setNamespace($namespace)
-		//->setUses($uses)
-		->setInherits($full_parent_name);
+	$route_factory = (new ClassFactory)->setName($new_class_name);
+	if(!empty($namespace)) {
+		$route_factory->setNamespace($namespace);
+	}
+	if(!empty($full_parent_name)) {
+		$route_factory->setInherits($full_parent_name);
+	}
 
-	$route_factory->defineClass();
+	$route_factory->define();
 	
 	unset($parent);
-	unset($uses);
 	unset($full_parent_name);
 
 	//$to_string = $route_factory->__toString();
-	$definition = $route_factory->getDefinition();
+	//$definition = $route_factory->getDefinition();
 	//$instance = $route_factory->getInstanceWhitoutConstructor();
-	//$file = $route_factory->writeOnFile('./');
+	$file = $route_factory->writeOnFile('./');
 	
 	exit("SUCCESS: Class {$new_class_name} created" . PHP_EOL);
 } catch(\Exception $ex) {

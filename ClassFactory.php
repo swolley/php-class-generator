@@ -1,7 +1,7 @@
 <?php
 namespace Swolley\ClassGenerator;
 
-class ClassFactory
+final class ClassFactory
 {
 	const PLACEHOLDER = '###placeholder###';
 	/////////////////////////////////////////////////// init params ////////////////////////////////////////////////////
@@ -17,28 +17,44 @@ class ClassFactory
 	private $_fDefinition = [];
 
 	//////////////////////////////////////////////////// getter/setter /////////////////////////////////////////////////
+	/**
+	 * @param	string			$name	class name
+	 * @return	ClassFactory	$this	self
+	 * @throws	\InvalidArgumentException	if name empty or not valid
+	 */
 	public function setName(string $name)
 	{
 		$name = ucfirst(trim($name));
 		if (empty($name) || !self::validateName($name)) {
-			throw new \UnexpectedValueException('Invalid class name');
+			throw new \InvalidArgumentException("Invalid class $name");
 		}
 
 		$this->_pName = $name;
 		return $this;
 	}
 
+	/**
+	 * @param	string			$name	namespace name
+	 * @return	ClassFactory	$this	self
+	 * @throws	\InvalidArgumentException	if name empty or not valid
+	 */
 	public function setNamespace(string $name)
 	{
 		$name = ucwords(trim($name), '\\');
 		if (empty($name) || !self::validateName($name)) {
-			throw new \UnexpectedValueException('Invalid namespace name');
+			throw new \InvalidArgumentException("Invalid namespace $name");
 		}
 		
 		$this->_pNamespace = $name;
 		return $this;
 	}
 
+	/**
+	 * @param	array			$usesList	uses list
+	 * @return	ClassFactory	$this		self
+	 * @throws	\InvalidArgumentException	if name empty or not valid
+	 * @throws	\UnexpectedValueException	if class not exists
+	 */
 	public function setUses(array $usesList)
 	{
 		if (!empty($usesList)) {
@@ -46,7 +62,11 @@ class ClassFactory
 			foreach($usesList as $name) {
 				$name = ucwords(trim($name), '\\');
 				if (empty($name) || !self::validateName($name)) {
-					throw new \UnexpectedValueException('Invalid use name');
+					throw new \InvalidArgumentException("Invalid name $name");
+				}
+
+				if(!class_exists($name)) {
+					throw new \UnexpectedValueException("class $name not exists");
 				}
 
 				$mapped[] = $name;
@@ -58,17 +78,32 @@ class ClassFactory
 		return $this;
 	}
 
+	/**
+	 * @param	string			$name		parent class name
+	 * @return	ClassFactory	$this		self
+	 * @throws	\InvalidArgumentException	if name empty or not valid
+	 * @throws	\UnexpectedValueException	if class not exists
+	 */
 	public function setInherits(string $name)
 	{
 		$name = ucwords(trim($name), '\\');
 		if (empty($name) || !self::validateName($name)) {
-			throw new \UnexpectedValueException('Invalid inherited class name');
+			throw new \InvalidArgumentException("Invalid name $name");
+		}
+
+		if (!class_exists($name)) {
+			throw new \UnexpectedValueException("class $name not exists");
 		}
 
 		$this->_pInherits = $name;
 		return $this;
 	}
 
+	/**
+	 * @param	bool			$isFinal	add final attribute to class
+	 * @return	ClassFactory	$this		self
+	 * @throws	\UnexpectedValueException	if abstract property already set
+	 */
 	public function setFinal(bool $isFinal = false)
 	{
 		if($isFinal && $this->_pIsAbstract) {
@@ -78,6 +113,11 @@ class ClassFactory
 		return $this;
 	}
 
+	/**
+	 * @param	bool			$isAbstract	add abstract attribute to class
+	 * @return	ClassFactory	$this		self
+	 * @throws	\UnexpectedValueException	if final property already set
+	 */
 	public function setAbstract(bool $isAbstract = false)
 	{
 		if($isAbstract && $this->_pIsFinal) {
@@ -89,7 +129,7 @@ class ClassFactory
 
 	/**
 	 * return class definition's code
-	 * @param	bool $$formatted	beautify code before return
+	 * @param	bool 	$formatted	beautify code before return
 	 * @return	string	stringified php code
 	 */
 	public function getDefinition(bool $formatted = true): string
@@ -99,7 +139,7 @@ class ClassFactory
 	}
 
 	/////////////////////////////////////////////// output ////////////////////////////////////////////////////
-	public function __toString()
+	public function __toString(): string
 	{
 		return ($this->evalDefinition())->__toString();
 	}
@@ -110,12 +150,17 @@ class ClassFactory
 		//parse directory separators, does lowercase file path and set final slash if not exists
 		$file_path = preg_replace('/.*(?<!' . $separator . ')$/', $separator, $path ?: str_replace('\\', $separator, strtolower($this->_pNamespace))) . $this->_pName . '.php';
 		$new_file = fopen($file_path, 'w');
-		$written_bytes = fwrite($new_file, '<?php' . PHP_EOL . $this->getDefinition());
+		$written_bytes = fwrite($new_file, $this->getDefinition());
 		fclose($new_file);
 
 		return is_int($written_bytes);
 	}
 
+	/**
+	 * @param	mixed	$constructorParams	variable numbers of parameters
+	 * @return	object						instance of requested class
+	 * @throws	\BadMethodCallException		abstract classes cannot be instantiated
+	 */
 	public function getInstance(...$constructorParams): object
 	{
 		if($this->_pIsAbstract) {
@@ -125,6 +170,10 @@ class ClassFactory
 		return ($this->evalDefinition())->newInstance(...$constructorParams);
 	}
 
+	/**
+	 * @return	object						instance of requested class
+	 * @throws	\BadMethodCallException		abstract classes cannot be instantiated
+	 */
 	public function getInstanceWhitoutConstructor(): object
 	{
 		if($this->_pIsAbstract) {
@@ -137,11 +186,14 @@ class ClassFactory
 	///////////////////////////////////////////////// main method //////////////////////////////////////////////////////////////
 	/**
      * main creation class
+	 * @throws	\UnexpectedValueException	if no class name found
+	 * @throws	\UnexpectedValueException	if parent class not exists
+	 * @throws	\UnexpectedValueException	if requested to inherit from a final class or a trait
      **/
-	public function defineClass()
+	public function define()
 	{
 		if(!$this->_pName) {
-			throw new Exception("Can't create a class without a name");
+			throw new \UnexpectedValueException("Can't create a class without a name");
 		}
 
 		$headerString = '';
@@ -161,7 +213,7 @@ class ClassFactory
 
 		if ($this->_pInherits) {
 			if (!class_exists($this->_pInherits) && !interface_exists($this->_pInherits)) {
-				throw new \Exception("{$this->_pInherits} not exists.");
+				throw new \UnexpectedValueException("{$this->_pInherits} not exists.");
 			}
 
 			$extends = new \ReflectionClass($this->_pInherits);
@@ -173,29 +225,21 @@ class ClassFactory
 
 			//throws if parent class is final because cannot be inherited
 			if ($extends->isFinal() || $extends->isTrait()) {
-				throw new \Exception('Final classes and traits cannot be inherited.');
+				throw new \UnexpectedValueException('Final classes and traits cannot be inherited.');
 			}
 
-			if (!$extends->isInterface()) {
-				$classString .= ' extends ';
-				//CONSTRUCTOR
-				$constructorString = static::defineConstructor($extends);
-			} else {
-				$classString .= ' implements ';
-			}
-			$classString .= $extends->getShortName();
-
+			$classString .= (!$extends->isInterface() ? ' extends ' : ' implements ') . $extends->getShortName();
 			//METHODS
 			$methods_list = static::defineDependentMethods($extends);
 		}
 
+		//CONSTRUCTOR
 		$constructorString = static::defineConstructor($extends);
-
 		array_unshift($methods_list, $constructorString);
-
 		//HEADER
 		$headerString = self::defineHeader();
 
+		//defined components
 		$this->_fDefinition = [
 			'header' => $headerString,
 			'class' => $classString . '{' . self::PLACEHOLDER . '}',
@@ -207,6 +251,7 @@ class ClassFactory
 
 	/**
 	 * compose namespace and uses list
+	 * @return string	$header	stringed namespace and uses list
 	 */
 	private function defineHeader(): string
 	{
@@ -243,7 +288,7 @@ class ClassFactory
 	/**
      * defines all methods contained in the parent class
      * @param   \ReflectionClass     $inheritedClass     parent class name
-     * @return  array                                  stringified php code of parent methods
+     * @return  array                                  	list of stringified php code of parent methods
      **/
 	private function defineDependentMethods(\ReflectionClass &$inheritedClass): array
 	{
@@ -256,7 +301,8 @@ class ClassFactory
 	}
 
 	/**
-	 * @param   \ReflectionClass     $inheritedClass     parent class name
+	 * @param   \ReflectionClass    $inheritedClass     parent class name
+	 * @return	array				$method_list		list of inheritable methods
 	 */
 	private function getParentMethods(\ReflectionClass &$inheritedClass): array
 	{
@@ -351,6 +397,10 @@ class ClassFactory
 		return $this->_fClass;
 	}
 
+	/**
+	 * @param	string	$name		name to check
+	 * @return	bool	$is_valid	name is valid
+	 */
 	private static function validateName(string $name): bool
 	{
 		$is_valid = true;

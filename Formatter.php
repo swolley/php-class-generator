@@ -1,7 +1,7 @@
 <?php
 namespace Swolley\ClassGenerator;
 
-class Token
+final class Token
 {
 	public
 		$type,
@@ -19,7 +19,7 @@ class Token
 	}
 }
 
-class Formatter
+final class Formatter
 {
 	const
 		OPERATORS = ['=', '.', '+', '-', '*', '/', '%', '||', '&&', '+=', '-=', '*=', '/=', '.=', '%=', '==', '!=', '<=', '>=', '<', '>', '===', '!=='],
