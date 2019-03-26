@@ -9,6 +9,8 @@ class ClassFactory
 	private $_pUses = [];
 	private $_pName = null;
 	private $_pInherits = null;
+	private $_pIsFinal = false;
+	private $_pIsAbstract = false;
 
 	////////////////////////////////////////////////// final fields ////////////////////////////////////////////////////
 	private $_fClass;
@@ -17,28 +19,40 @@ class ClassFactory
 	//////////////////////////////////////////////////// getter/setter /////////////////////////////////////////////////
 	public function setName(string $name)
 	{
-		if (!empty($name)) {
-			$this->_pName = ucfirst(trim($name));
+		$name = ucfirst(trim($name));
+		if (empty($name) || !self::validateName($name)) {
+			throw new \UnexpectedValueException('Invalid class name');
 		}
 
+		$this->_pName = $name;
 		return $this;
 	}
 
 	public function setNamespace(string $name)
 	{
-		if (!empty($name)) {
-			$this->_pNamespace = ucwords(trim($name), '\\');
+		$name = ucwords(trim($name), '\\');
+		if (empty($name) || !self::validateName($name)) {
+			throw new \UnexpectedValueException('Invalid namespace name');
 		}
-
+		
+		$this->_pNamespace = $name;
 		return $this;
 	}
 
 	public function setUses(array $usesList)
 	{
 		if (!empty($usesList)) {
-			$this->_pUses = array_map(function($use) {
-				return ucwords(trim($use), '\\');
-			}, $usesList);
+			$mapped = [];
+			foreach($usesList as $name) {
+				$name = ucwords(trim($name), '\\');
+				if (empty($name) || !self::validateName($name)) {
+					throw new \UnexpectedValueException('Invalid use name');
+				}
+
+				$mapped[] = $name;
+			}
+
+			$this->_pUses = $mapped;
 		}
 
 		return $this;
@@ -46,10 +60,30 @@ class ClassFactory
 
 	public function setInherits(string $name)
 	{
-		if (!empty($name)) {
-			$this->_pInherits = ucwords(trim($name), '\\');
+		$name = ucwords(trim($name), '\\');
+		if (empty($name) || !self::validateName($name)) {
+			throw new \UnexpectedValueException('Invalid inherited class name');
 		}
 
+		$this->_pInherits = $name;
+		return $this;
+	}
+
+	public function setFinal(bool $isFinal = false)
+	{
+		if($isFinal && $this->_pIsAbstract) {
+			throw new \UnexpectedValueException('Abstract class cannot be final');
+		}
+		$this->_pIsFinal = $isFinal;
+		return $this;
+	}
+
+	public function setAbstract(bool $isAbstract = false)
+	{
+		if($isAbstract && $this->_pIsFinal) {
+			throw new \UnexpectedValueException('Final class cannot be abstract');
+		}
+		$this->_pIsAbstract = $isAbstract;
 		return $this;
 	}
 
@@ -84,11 +118,19 @@ class ClassFactory
 
 	public function getInstance(...$constructorParams): object
 	{
+		if($this->_pIsAbstract) {
+			throw new \BadMethodCallException('Cannot instantiate an object from an abstract class');
+		}
+		
 		return ($this->evalDefinition())->newInstance(...$constructorParams);
 	}
 
 	public function getInstanceWhitoutConstructor(): object
 	{
+		if($this->_pIsAbstract) {
+			throw new \BadMethodCallException('Cannot instantiate an object from an abstract class');
+		}
+
 		return ($this->evalDefinition())->newInstanceWithoutConstructor();
 	}
 
@@ -109,7 +151,13 @@ class ClassFactory
 		$extends = null;
 
 		//CLASS SIGNATURE
-		$classString = 'final class ' . $this->_pName;
+		if($this->_pIsFinal) {
+			$classString .= 'final ';
+		} elseif($this->_pIsAbstract) {
+			$classString .= 'abstract ';
+		}
+
+		$classString .= 'class ' . $this->_pName;
 
 		if ($this->_pInherits) {
 			if (!class_exists($this->_pInherits) && !interface_exists($this->_pInherits)) {
@@ -233,12 +281,17 @@ class ClassFactory
 	{
 		$reflection_method = (new \ReflectionMethod($method->class, $method->name));
 
-		//removes abstract from modifier because implemented
-		$modifiers =  str_replace('abstract ', '', implode(' ', Reflection::getModifierNames($reflection_method->getModifiers())));
+		//removes abstract from modifier because implemented if not creating another abstract class
+		$modifiers = implode(' ', Reflection::getModifierNames($reflection_method->getModifiers()));
+		$modifiers =  $this->_pIsAbstract ? $modifiers : str_replace('abstract ', '', $modifiers);
 		//defines method signature
 		$method_definition = $modifiers . ' function ' . $method->name . '(' . static::defineParams($class, $method) . ')';
 		//appends return type if exists
-		$method_definition .= $reflection_method->hasReturnType() ? (': ' . $reflection_method->getReturnType()) : '{}';
+		if($reflection_method->hasReturnType()) {
+			$method_definition .= ': ' . $reflection_method->getReturnType();
+		}
+		
+		$method_definition .= $this->_pIsAbstract ? ';' : '{}';
 
 		return $method_definition;
 	}
@@ -296,5 +349,19 @@ class ClassFactory
 		}
 
 		return $this->_fClass;
+	}
+
+	private static function validateName(string $name): bool
+	{
+		$is_valid = true;
+		$to_check = explode('\\', $name);
+		foreach($to_check as $word) {
+			$is_valid = preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/', $word) !== false;
+			if(!$is_valid) {
+				break;
+			}
+		}
+
+		return $is_valid;
 	}
 }

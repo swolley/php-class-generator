@@ -24,14 +24,13 @@ class Formatter
 	const
 		OPERATORS = ['=', '.', '+', '-', '*', '/', '%', '||', '&&', '+=', '-=', '*=', '/=', '.=', '%=', '==', '!=', '<=', '>=', '<', '>', '===', '!=='],
 		IMPORT_STATEMENTS = [T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE],
-		CONTROL_STRUCTURES = [T_IF, T_ELSEIF, T_FOREACH, T_FOR, T_WHILE, T_SWITCH, T_ELSE],
-		MODIFIERS = [T_PRIVATE, T_PUBLIC, T_PROTECTED, T_FINAL, T_STATIC];
+		CONTROL_STRUCTURES = [T_IF, T_ELSEIF, T_FOREACH, T_FOR, T_WHILE, T_SWITCH, T_ELSE];
 
 	private
 		$WHITESPACE_BEFORE = ['?', '{', '=>'],
 		$WHITESPACE_AFTER = [',', '?', '=>'],
-		$RETURN_BEFORE = [T_NAMESPACE],
-		$RETURN_AFTER = [';', '<?php'];
+		$RETURN_BEFORE = [T_NAMESPACE, T_FINAL],
+		$RETURN_AFTER = [';', '<?php', '{'];
 
 	public function __invoke(string $code): string
 	{
@@ -45,7 +44,6 @@ class Formatter
 			$tokens[] = new Token($rawToken);
 		}
 
-		$this->RETURN_BEFORE = array_merge($this->RETURN_BEFORE, self::MODIFIERS);
 		foreach (self::OPERATORS as $op) {
 			$this->WHITESPACE_BEFORE[] = $op;
 			$this->WHITESPACE_AFTER[] = $op;
@@ -60,6 +58,7 @@ class Formatter
 
 	/**
 	 * filter out unwanted tokens
+	 * @param	array	$tokens	list of tokens
 	 */
 	private function filterUnwantedTokens(array &$tokens)
 	{
@@ -101,7 +100,12 @@ class Formatter
 		$tokens = $filtered_tokens;
 	}
 
-	private function parseCode(array &$tokens)
+	/**
+	 * parses spaces and returns
+	 * @param	array	$tokens				list of tokens
+	 * @return	string	$final_parsed_code	stringed parsed code
+	 */
+	private function parseCode(array &$tokens): string
 	{
 		$tabulators = 0;
 		$final_parsed_code = '';
@@ -127,7 +131,10 @@ class Formatter
 			}
 
 			//puts return before
-			if (in_array($token->type, $this->RETURN_BEFORE) || ($token->contents === '{' && !in_array($tokens[$i - 1]->type, self::CONTROL_STRUCTURES))) {
+			if (in_array($token->type, $this->RETURN_BEFORE) 
+				|| ($token->contents === '{' && !in_array($tokens[$i - 1]->type, self::CONTROL_STRUCTURES))
+				|| ($token->type === T_CLASS && mb_substr($final_parsed_code, -1) !== ' ')
+			) {
 				$current_parsed_token .= PHP_EOL;
 			}
 
@@ -152,11 +159,7 @@ class Formatter
 					$double_quote = false;
 				}
 			} elseif ($token->type === T_STRING && $tokens[$i - 1]->contents === '[' && $tokens[$i + 1]->contents === ']') {
-				if (preg_match('/[a-z_]+/', $token->contents)) {
-					$current_parsed_token .= "'" . $token->contents . "'";
-				} else {
-					$current_parsed_token .= $token->contents;
-				}
+				$current_parsed_token .= preg_match('/[a-z_]+/', $token->contents) ? "'" . $token->contents . "'" : $token->contents;
 			} elseif ($token->type === T_ENCAPSED_AND_WHITESPACE || $token->type === T_STRING) {
 				$current_parsed_token .= $token->contents;
 			} elseif ($token->contents === '-' && in_array($tokens[$i + 1]->type, [T_LNUMBER, T_DNUMBER])) {
@@ -168,11 +171,13 @@ class Formatter
 				}
 			} elseif ($token->contents === '}') {
 				$current_parsed_token .= '}';
+				//decrease tabulation
+				$tabulators --;
 				if ($i + 1 < count($tokens) && in_array($tokens[$i + 1]->type, self::CONTROL_STRUCTURES)) {
 					$current_parsed_token .= ' ';
-				} elseif ($i + 1 < count($tokens)) {
+				} else {
 					$current_parsed_token .= PHP_EOL;
-					if ($tokens[$i + 1]->contents !== '}') {
+					if ($i + 1 < count($tokens) && $tokens[$i + 1]->contents !== '}') {
 						$current_parsed_token .= PHP_EOL;
 					}
 				}
@@ -197,24 +202,31 @@ class Formatter
 			} elseif (in_array($token->contents, $this->WHITESPACE_BEFORE) && $tokens[$i - 1]->type !== T_WHITESPACE && in_array($token->contents, $this->WHITESPACE_AFTER) && $tokens[$i + 1]->type !== T_WHITESPACE) {
 				$current_parsed_token .= ' ' . $token->contents . ' ';
 			} elseif (in_array($token->contents, $this->WHITESPACE_BEFORE) && $tokens[$i - 1]->type !== T_WHITESPACE) {
-				$current_parsed_token .= ' ' . $token->contents;
+				if($token->contents !== '{' || ($token->contents === '{' && in_array($tokens[$i - 1]->type, self::CONTROL_STRUCTURES))) {
+					$current_parsed_token .= ' ';
+				}
+
+				$current_parsed_token .= $token->contents;
 			} elseif (in_array($token->contents, $this->WHITESPACE_AFTER) && $tokens[$i + 1]->type !== T_WHITESPACE) {
 				$current_parsed_token .= $token->contents . ' ';
 			} else {
 				$current_parsed_token .= $token->contents;
 			}
 
-			$current_parsed_token = mb_substr($final_parsed_code, -2) === PHP_EOL . ' ' ? str_repeat("\t", $tabulators) . ltrim($current_parsed_token, ' ') : $current_parsed_token;
+			if(mb_substr($final_parsed_code, -1) === PHP_EOL) {
+				$current_parsed_token = str_repeat("\t", $tabulators) . $current_parsed_token;
+			} elseif(mb_substr($current_parsed_token, 0, 1) === PHP_EOL) {
+				$current_parsed_token = substr_replace($current_parsed_token, str_repeat("\t", $tabulators), 1, 0);
+			}
+
 			//adds return after
-			if (in_array($token->contents, $this->RETURN_AFTER)) {
+			if (in_array($token->contents, $this->RETURN_AFTER) && !mb_strpos($current_parsed_token, PHP_EOL)) {
 				$current_parsed_token .= PHP_EOL;
 			}
 
-			//if bracket increase or decrease tabulation
+			//if open bracket increase tabulation
 			if ($token->contents === '{') {
 				$tabulators++;
-			} elseif ($token->contents === '}') {
-				$tabulators --;
 			}
 
 			$final_parsed_code .= $current_parsed_token;
