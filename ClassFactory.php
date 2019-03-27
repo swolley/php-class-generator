@@ -1,8 +1,17 @@
 <?php
-namespace Swolley\ClassGenerator;
+namespace ClassGenerator;
 
-use Swolley\ClassGenerator\Utils\TraitValidator;
-use Swolley\ClassGenerator\Utils\Formatter;
+use 
+	ClassGenerator\Utils\TraitValidator,
+	ClassGenerator\Utils\Formatter;
+
+use
+	ClassGenerator\Components\AbstractComponent,
+	ClassGenerator\Components\CConstructor,
+	ClassGenerator\Components\CMethod,
+	ClassGenerator\Components\CNamespace,
+	ClassGenerator\Components\CUse;
+use ClassGenerator\Components\ParentList;
 
 /**
  * class generator
@@ -27,13 +36,13 @@ final class ClassFactory
 	 */
 	private
 		/*construction params*/
+		$_pName = null,
 		$_pNamespace = null,
 		$_pUses = [],
-		$_pName = null,
+		$_pParents = null,
+		$_pMethods = [],
 		$_pIsFinal = false,
 		$_pIsAbstract = false,
-		$_pParents = [ 'extends' => null, 'inherits' => [] ],
-		$_pMethods = [],
 		/*output containers*/
 		$_fClass,
 		$_fDefinition = [ 'header' => null, 'class' => null, 'traits' => null, 'methods' => null ];
@@ -45,6 +54,7 @@ final class ClassFactory
 	public function __construct(string $name)
 	{
 		$this->_pName = self::parseName($name);
+		$this->_pParents = new ParentList();
 	}
 
 	/////////////////////////////// properties setters /////////////////////////////////////////////
@@ -59,7 +69,8 @@ final class ClassFactory
 		if(!is_null($this->_pNamespace)){
 			throw new \UnexpectedValueException("namespace already set");
 		}
-		$this->_pNamespace = self::parseName($name);
+		$name = self::parseName($name);
+		$this->_pNamespace = new CNamespace($name);
 		return $this;
 	}
 
@@ -69,14 +80,20 @@ final class ClassFactory
 	 * @return	self			self class (used to chain init methods)
 	 * @throws	\UnexpectedValueException	if specified class not exists
 	 */
-	public function uses(string $name)
+	public function use(string $name)
 	{
 		$name = self::parseName($name);
 		if(!class_exists($name)) {
 			throw new \UnexpectedValueException("class $name not exists");
 		}
 
-		$this->_pUses[] = $name;
+		foreach($this->_pUses as $use) {
+			if($use->getName() === $name) {
+				return $this;
+			}
+		}
+
+		$this->_pUses[] = new CUse($name);
 		return $this;
 	}
 
@@ -86,14 +103,14 @@ final class ClassFactory
 	 * @return	self			self class (used to chain init methods)
 	 * @throws	\UnexpectedValueException	if specified class not exists
 	 */
-	public function inherits(string $name)
+	public function inherit(string $name)
 	{
 		$name = self::parseName($name);
 		if(!class_exists($name)) {
 			throw new \UnexpectedValueException("class $name not exists");
 		}
 
-		$this->setParentClass($name);
+		$this->_pParents->add($name);
 		return $this;
 	}
 
@@ -209,45 +226,47 @@ final class ClassFactory
 		}
 	}
 
-	private function setParentClass(string $name)
-	{
-		$class = new \ReflectionClass($name);
-		//throws if parent class is final because cannot be inherited
-		if ($class->isFinal() || $class->isTrait()) {
-			throw new \UnexpectedValueException('Final classes and traits cannot be inherited');
-		}
-		//adds namespace in use list if not already in
-		$class_namespace = $class->getNamespaceName();
-		$class_namespace = empty($class_namespace) ? '\\' . $class->name : $class_namespace;
-		if($class_namespace !== $this->_pNamespace && !in_array($class_namespace, $this->_pUses)) {
-			$this->_pUses[] = $class_namespace;
-		}
+	// private function setParentClass(string $name)
+	// {
+	// 	$class = new \ReflectionClass($name);
+	// 	//throws if parent class is final because cannot be inherited
+	// 	if ($class->isFinal() || $class->isTrait()) {
+	// 		throw new \UnexpectedValueException('Final classes and traits cannot be inherited');
+	// 	}
+		
+	// 	//adds class in parent's list
+	// 	if($class->isInterface()) {
+	// 		$this->_pParents['inherits'][] = $class->getShortName();
+	// 	} elseif(is_null($this->_pParents['extends'])) {
+	// 		$this->_pParents['extends'] = $class->getShortName();
+	// 	} else {
+	// 		throw new \UnexpectedValueException('Cannot extend more than one class');
+	// 	}
+		
+	// 	//adds namespace in use list if not already in
+	// 	$class_namespace = $class->getNamespaceName();
+	// 	$class_namespace = empty($class_namespace) ? '\\' . $class->name : $class_namespace;
+	// 	if($class_namespace !== $this->_pNamespace) {
+	// 		$this->use($class_namespace);
+	// 	}
+	// 	//adds inheritable methods to list
+	// 	$this->setParentMethods($class);
+	// }
 
-		//adds class in parent's list
-		if($class->isInterface()) {
-			$this->_pParents['inherits'][] = $class;
-		} elseif(is_null($this->_pParents['extends'])) {
-			$this->_pParents['extends'] = $class;
-		} else {
-			throw new \UnexpectedValueException('Cannot extends more than one interface');
-		}
+	// private function setParentMethods(\ReflectionClass &$class)
+	// {
+	// 	$methods_list = [];
+	// 	//define methods only if parent class is abstract or interface
+	// 	if ($class->isInterface()) {
+	// 		$methods_list = $class->getMethods();
+	// 	} elseif ($class->isAbstract()) {
+	// 		$methods_list = $class->getMethods(\ReflectionMethod::IS_ABSTRACT);
+	// 	}
 
-		//adds inheritable methods to list
-		$this->setParentMethods($class);
-	}
-
-	private function setParentMethods(\ReflectionClass &$class)
-	{
-		$methods_list = [];
-		//define methods only if parent class is abstract or interface
-		if ($class->isInterface()) {
-			$methods_list = $class->getMethods();
-		} elseif ($class->isAbstract()) {
-			$methods_list = $class->getMethods(\ReflectionMethod::IS_ABSTRACT);
-		}
-
-		$this->_pMethods = array_merge($this->_pMethods, $methods_list);
-	}
+	// 	foreach($methods_list as $method) {
+	// 		$this->_pMethods[] = new CMethod($class, $method);
+	// 	}
+	// }
 
 	/**
      * always calls parent constructor from inherited classes

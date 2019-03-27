@@ -1,7 +1,7 @@
 <?php
-namespace Swolley\ClassGenerator\Utils;
+namespace ClassGenerator\Utils;
 
-trait Validator
+trait TraitValidator
 {
 	/**
 	 * format name and calls validate method

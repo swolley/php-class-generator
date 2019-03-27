@@ -1,5 +1,5 @@
 <?php
-namespace Swolley\ClassGenerator\Utils;
+namespace ClassGenerator\Utils;
 
 class Token
 {

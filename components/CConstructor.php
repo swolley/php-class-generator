@@ -1,5 +1,5 @@
 <?php
-namespace Swolley\ClassGenerator\Controller;
+namespace ClassGenerator\Components;
 
 class CConstructor extends CMethod
 {

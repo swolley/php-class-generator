@@ -13,9 +13,9 @@
     },
     "autoload": {
         "psr-4": {
-			"Swolley\\ClassGenerator\\": "/",
-			"Swolley\\ClassGenerator\\Components\\": "/components",
-			"Swolley\\ClassGenerator\\Utils\\": "/utils"
+			"ClassGenerator\\": "/",
+			"ClassGenerator\\Components\\": "components/",
+			"ClassGenerator\\Utils\\": "utils/"
         }
     }
 }

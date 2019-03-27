@@ -1,5 +1,5 @@
 <?php
-namespace Swolley\ClassGenerator\Components;
+namespace ClassGenerator\Components;
 
 class CNamespace extends AbstractComponent
 {
