@@ -8,21 +8,25 @@ final class ClassFactory
 	private $_pNamespace = null;
 	private $_pUses = [];
 	private $_pName = null;
-	private $_pInherits = null;
 	private $_pIsFinal = false;
 	private $_pIsAbstract = false;
+	private $_pParents = [
+		'extends' => null,
+		'inherits' => []
+	];
+	private $_pMethods = [];
 
 	////////////////////////////////////////////////// final fields ////////////////////////////////////////////////////
 	private $_fClass;
-	private $_fDefinition = [];
+	private $_fDefinition = [
+		'header' => null,
+		'class' => null,
+		'traits' => null,
+		'methods' => null
+	];
 
-	//////////////////////////////////////////////////// getter/setter /////////////////////////////////////////////////
-	/**
-	 * @param	string			$name	class name
-	 * @return	ClassFactory	$this	self
-	 * @throws	\InvalidArgumentException	if name empty or not valid
-	 */
-	public function setName(string $name)
+	//////////////////////////////////////////////// constructor ////////////////////////////////////////////////////
+	public function __construct(string $name)
 	{
 		$name = ucfirst(trim($name));
 		if (empty($name) || !self::validateName($name)) {
@@ -30,15 +34,10 @@ final class ClassFactory
 		}
 
 		$this->_pName = $name;
-		return $this;
 	}
 
-	/**
-	 * @param	string			$name	namespace name
-	 * @return	ClassFactory	$this	self
-	 * @throws	\InvalidArgumentException	if name empty or not valid
-	 */
-	public function setNamespace(string $name)
+	//////////////////////////////////////////////////// getter/setter /////////////////////////////////////////////////
+	public function namespace(string $name)
 	{
 		$name = ucwords(trim($name), '\\');
 		if (empty($name) || !self::validateName($name)) {
@@ -49,43 +48,24 @@ final class ClassFactory
 		return $this;
 	}
 
-	/**
-	 * @param	array			$usesList	uses list
-	 * @return	ClassFactory	$this		self
-	 * @throws	\InvalidArgumentException	if name empty or not valid
-	 * @throws	\UnexpectedValueException	if class not exists
-	 */
-	public function setUses(array $usesList)
+	public function uses(array $name)
 	{
-		if (!empty($usesList)) {
-			$mapped = [];
-			foreach($usesList as $name) {
-				$name = ucwords(trim($name), '\\');
-				if (empty($name) || !self::validateName($name)) {
-					throw new \InvalidArgumentException("Invalid name $name");
-				}
-
-				if(!class_exists($name)) {
-					throw new \UnexpectedValueException("class $name not exists");
-				}
-
-				$mapped[] = $name;
-			}
-
-			$this->_pUses = $mapped;
+		$name = ucwords(trim($name), '\\');
+		if (empty($name) || !self::validateName($name)) {
+			throw new \InvalidArgumentException("Invalid name $name");
 		}
 
+		if(!class_exists($name)) {
+			throw new \UnexpectedValueException("class $name not exists");
+		}
+
+		$this->_pUses[] = $name;
 		return $this;
 	}
 
-	/**
-	 * @param	string			$name		parent class name
-	 * @return	ClassFactory	$this		self
-	 * @throws	\InvalidArgumentException	if name empty or not valid
-	 * @throws	\UnexpectedValueException	if class not exists
-	 */
-	public function setInherits(string $name)
+	public function inherits(string $name)
 	{
+		//validations
 		$name = ucwords(trim($name), '\\');
 		if (empty($name) || !self::validateName($name)) {
 			throw new \InvalidArgumentException("Invalid name $name");
@@ -95,16 +75,11 @@ final class ClassFactory
 			throw new \UnexpectedValueException("class $name not exists");
 		}
 
-		$this->_pInherits = $name;
+		$this->setParentClass($name);
 		return $this;
 	}
 
-	/**
-	 * @param	bool			$isFinal	add final attribute to class
-	 * @return	ClassFactory	$this		self
-	 * @throws	\UnexpectedValueException	if abstract property already set
-	 */
-	public function setFinal(bool $isFinal = false)
+	public function final(bool $isFinal = false)
 	{
 		if($isFinal && $this->_pIsAbstract) {
 			throw new \UnexpectedValueException('Abstract class cannot be final');
@@ -113,12 +88,7 @@ final class ClassFactory
 		return $this;
 	}
 
-	/**
-	 * @param	bool			$isAbstract	add abstract attribute to class
-	 * @return	ClassFactory	$this		self
-	 * @throws	\UnexpectedValueException	if final property already set
-	 */
-	public function setAbstract(bool $isAbstract = false)
+	public function abstract(bool $isAbstract = false)
 	{
 		if($isAbstract && $this->_pIsFinal) {
 			throw new \UnexpectedValueException('Final class cannot be abstract');
@@ -127,18 +97,19 @@ final class ClassFactory
 		return $this;
 	}
 
-	/**
-	 * return class definition's code
-	 * @param	bool 	$formatted	beautify code before return
-	 * @return	string	stringified php code
-	 */
+	/////////////////////////////////////////////// output ////////////////////////////////////////////////////
 	public function getDefinition(bool $formatted = true): string
 	{
-		$complete_string = $this->_fDefinition['header'] . str_replace(self::PLACEHOLDER, implode($this->_fDefinition['methods']), $this->_fDefinition['class']);
+		$complete_string = $this->_fDefinition['header'] 
+			. str_replace(
+				self::PLACEHOLDER, 
+				$this->_fDefinition['traits'] . $this->_fDefinition['methods'],
+				$this->_fDefinition['class']
+			);
+
 		return $formatted ? (new Formatter)($complete_string) : $complete_string;
 	}
 
-	/////////////////////////////////////////////// output ////////////////////////////////////////////////////
 	public function __toString(): string
 	{
 		return ($this->evalDefinition())->__toString();
@@ -196,54 +167,49 @@ final class ClassFactory
 			throw new \UnexpectedValueException("Can't create a class without a name");
 		}
 
-		$headerString = '';
-		$classString = '';
-		$constructorString = '';
+		$header_string = '';
+		$class_string = '';
+		$constructor_string = '';
+		$traits_string = '';
 		$methods_list = [];
 		$extends = null;
 
 		//CLASS SIGNATURE
 		if($this->_pIsFinal) {
-			$classString .= 'final ';
+			$class_string .= 'final ';
 		} elseif($this->_pIsAbstract) {
-			$classString .= 'abstract ';
+			$class_string .= 'abstract ';
 		}
 
-		$classString .= 'class ' . $this->_pName;
+		$class_string .= 'class ' . $this->_pName;
 
-		if ($this->_pInherits) {
-			if (!class_exists($this->_pInherits) && !interface_exists($this->_pInherits)) {
-				throw new \UnexpectedValueException("{$this->_pInherits} not exists.");
+		foreach($this->_pParents as $key => $value) {
+			if($key === 'extends' && $value) {
+				$class_string .= ' extends ' . $value->getShortName();
 			}
 
-			$extends = new \ReflectionClass($this->_pInherits);
-			$extends_namespace = $extends->getNamespaceName();
-			$extends_namespace = empty($extends_namespace) ? '\\' . $extends->name : $extends_namespace;
-			if($extends_namespace !== $this->_pNamespace && !in_array($extends_namespace, $this->_pUses)) {
-				$this->_pUses[] = $extends_namespace;
-			}
+		}
 
-			//throws if parent class is final because cannot be inherited
-			if ($extends->isFinal() || $extends->isTrait()) {
-				throw new \UnexpectedValueException('Final classes and traits cannot be inherited.');
+		if (count($this->_pParents['inherits']) > 0) {
+			foreach($this->_pParents as $extends) {
+				$class_string .= (!$extends->isInterface() ? ' extends ' : ' implements ') . $extends->getShortName();
+				//METHODS
+				//$this->defineDependentMethods($methods_list, $extends);
 			}
-
-			$classString .= (!$extends->isInterface() ? ' extends ' : ' implements ') . $extends->getShortName();
-			//METHODS
-			$methods_list = static::defineDependentMethods($extends);
 		}
 
 		//CONSTRUCTOR
-		$constructorString = static::defineConstructor($extends);
-		array_unshift($methods_list, $constructorString);
+		$this->defineConstructor($constructor_string, $extends);
+		array_unshift($methods_list, $constructor_string);
 		//HEADER
-		$headerString = self::defineHeader();
-
+		$this->defineHeader($header_string, $traits_string);
+		
 		//defined components
 		$this->_fDefinition = [
-			'header' => $headerString,
-			'class' => $classString . '{' . self::PLACEHOLDER . '}',
-			'methods' => $methods_list
+			'header' => $header_string,
+			'class' => $class_string . '{' . self::PLACEHOLDER . '}',
+			'traits' => $traits_string,
+			'methods' => implode($methods_list)
 		];
 	}
 
@@ -253,20 +219,61 @@ final class ClassFactory
 	 * compose namespace and uses list
 	 * @return string	$header	stringed namespace and uses list
 	 */
-	private function defineHeader(): string
+	private function defineHeader(string &$header, string &$traits)
 	{
-		$header = '';
 		if ($this->_pNamespace) {
 			$header .= 'namespace ' . $this->_pNamespace . ';';
 		}
 
 		if ($this->_pUses) {
-			$header .= array_reduce($this->_pUses ? $this->_pUses : [], function ($total, $use) {
-				return $total .= 'use ' . $use . ';';
-			}, '');
+			foreach($this->_pUses ? $this->_pUses : [] as $use) {
+				$use_class = new \ReflectionClass($use);
+				if($use_class->isTrait()) {
+					$traits .= 'use' . $use_class->getShortName() . ';';
+				}
+				$header .= 'use ' . $use . ';';
+			}
+		}
+	}
+
+	private function setParentClass(string $name)
+	{
+		$class = new \ReflectionClass($name);
+		//throws if parent class is final because cannot be inherited
+		if ($class->isFinal() || $class->isTrait()) {
+			throw new \UnexpectedValueException('Final classes and traits cannot be inherited');
+		}
+		//adds namespace in use list if not already in
+		$class_namespace = $class->getNamespaceName();
+		$class_namespace = empty($class_namespace) ? '\\' . $class->name : $class_namespace;
+		if($class_namespace !== $this->_pNamespace && !in_array($class_namespace, $this->_pUses)) {
+			$this->_pUses[] = $class_namespace;
 		}
 
-		return $header;
+		//adds class in parent's list
+		if($class->isInterface()) {
+			$this->_pParents['inherits'][] = $class;
+		} elseif(is_null($this->_pParents['extends'])) {
+			$this->_pParents['extends'] = $class;
+		} else {
+			throw new \UnexpectedValueException('Cannot extends more than one interface');
+		}
+
+		//adds inheritable methods to list
+		$this->setParentMethods($class);
+	}
+
+	private function setParentMethods(\ReflectionClass &$class)
+	{
+		$methods_list = [];
+		//define methods only if parent class is abstract or interface
+		if ($class->isInterface()) {
+			$methods_list = $class->getMethods();
+		} elseif ($class->isAbstract()) {
+			$methods_list = $class->getMethods(\ReflectionMethod::IS_ABSTRACT);
+		}
+
+		$this->_pMethods = array_merge($this->_pMethods, $methods_list);
 	}
 
 	/**
@@ -274,15 +281,15 @@ final class ClassFactory
 	 * @param	\ReflectionClass    $inheritedClass		parent class
      * @return  string  			$definition 		stringified php code of constructor
      **/
-	private function defineConstructor(\ReflectionClass &$inheritedClass = null): string
+	private function defineConstructor(string &$constructor, \ReflectionClass &$inheritedClass = null)
 	{
 		if ($inheritedClass && !$inheritedClass->isInterface()) {	
 			$inherited_constructor = $inheritedClass->getConstructor();
 			$parent_constructor ='parent::__construct(' . static::defineParams($inheritedClass, $inherited_constructor, false, false) . ');';
-			return 'public function __construct(' . static::defineParams($inheritedClass, $inherited_constructor) . '){' . $parent_constructor . '}';
+			$constructor = 'public function __construct(' . static::defineParams($inheritedClass, $inherited_constructor) . '){' . $parent_constructor . '}';
+		} else {
+			$constructor = 'public function __construct(){}';
 		}
-
-		return 'public function __construct(){}';
 	}
 
 	/**
@@ -290,31 +297,12 @@ final class ClassFactory
      * @param   \ReflectionClass     $inheritedClass     parent class name
      * @return  array                                  	list of stringified php code of parent methods
      **/
-	private function defineDependentMethods(\ReflectionClass &$inheritedClass): array
+	private function defineDependentMethods(array &$methods, \ReflectionClass &$inheritedClass)
 	{
-		return array_map(function ($method) {
-				//defines single method
-				return static::defineMethod($inheritedClass, $method);
-			}, 
-			$this->getParentMethods($inheritedClass)
-		);
-	}
-
-	/**
-	 * @param   \ReflectionClass    $inheritedClass     parent class name
-	 * @return	array				$method_list		list of inheritable methods
-	 */
-	private function getParentMethods(\ReflectionClass &$inheritedClass): array
-	{
-		$method_list = [];
-		//define methods only if parent class is abstract or interface
-		if ($inheritedClass->isInterface()) {
-			$method_list = $inheritedClass->getMethods();
-		} elseif ($inheritedClass->isAbstract()) {
-			$method_list = $inheritedClass->getMethods(\ReflectionMethod::IS_ABSTRACT);
+		
+		foreach($this->setParentClassMethods($inheritedClass) as $method) {
+			$methods[] = static::defineMethod($inheritedClass, $method);
 		}
-
-		return $method_list;
 	}
 
 	/**

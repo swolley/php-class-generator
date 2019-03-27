@@ -34,12 +34,12 @@ unset($handle);
 echo PHP_EOL;
 
 try{
-	$route_factory = (new ClassFactory)->setName($new_class_name);
+	$route_factory = new ClassFactory($new_class_name);
 	if(!empty($namespace)) {
-		$route_factory->setNamespace($namespace);
+		$route_factory->namespace($namespace);
 	}
 	if(!empty($full_parent_name)) {
-		$route_factory->setInherits($full_parent_name);
+		$route_factory->inherits($full_parent_name);
 	}
 
 	$route_factory->define();
