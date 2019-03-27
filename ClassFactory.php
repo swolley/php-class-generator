@@ -1,60 +1,77 @@
 <?php
 namespace Swolley\ClassGenerator;
 
+use Swolley\ClassGenerator\Utils\TraitValidator;
+use Swolley\ClassGenerator\Utils\Formatter;
+
+/**
+ * class generator
+ * @uses	TraitValidator	name parsers and validators
+ */
 final class ClassFactory
 {
-	const PLACEHOLDER = '###placeholder###';
-	/////////////////////////////////////////////////// init params ////////////////////////////////////////////////////
-	private $_pNamespace = null;
-	private $_pUses = [];
-	private $_pName = null;
-	private $_pIsFinal = false;
-	private $_pIsAbstract = false;
-	private $_pParents = [
-		'extends' => null,
-		'inherits' => []
-	];
-	private $_pMethods = [];
+	use TraitValidator;
 
-	////////////////////////////////////////////////// final fields ////////////////////////////////////////////////////
-	private $_fClass;
-	private $_fDefinition = [
-		'header' => null,
-		'class' => null,
-		'traits' => null,
-		'methods' => null
-	];
+	const PLACEHOLDER = '###placeholder###';
+
+	/**
+	 * @var	null|string			$_pNamespace	new class namespace
+	 * @var	array				$_pUses			uses list
+	 * @var	null|string			$_pName			new class name
+	 * @var	bool				$_pIsFinal		is new class final
+	 * @var	bool				$_pIsAbstract	is new class abstract
+	 * @var	array				$_pParents		parent classes list
+	 * @var	array				$_pMethods		methods to implement
+	 * @var	\ReflectionClass	$_fClass		final class container
+	 * @var	array				$_fDefinition	final class stringed code
+	 */
+	private
+		/*construction params*/
+		$_pNamespace = null,
+		$_pUses = [],
+		$_pName = null,
+		$_pIsFinal = false,
+		$_pIsAbstract = false,
+		$_pParents = [ 'extends' => null, 'inherits' => [] ],
+		$_pMethods = [],
+		/*output containers*/
+		$_fClass,
+		$_fDefinition = [ 'header' => null, 'class' => null, 'traits' => null, 'methods' => null ];
 
 	//////////////////////////////////////////////// constructor ////////////////////////////////////////////////////
+	/**
+	 * @param	string	$name	new class name
+	 */
 	public function __construct(string $name)
 	{
-		$name = ucfirst(trim($name));
-		if (empty($name) || !self::validateName($name)) {
-			throw new \InvalidArgumentException("Invalid class $name");
-		}
-
-		$this->_pName = $name;
+		$this->_pName = self::parseName($name);
 	}
 
-	//////////////////////////////////////////////////// getter/setter /////////////////////////////////////////////////
+	/////////////////////////////// properties setters /////////////////////////////////////////////
+	/**
+	 * validate and set new class namespace
+	 * @param	string	$name	class namespace
+	 * @return	self			self class (used to chain init methods)
+	 * @throws	\UnexpectedValueException	if namespace already set
+	 */
 	public function namespace(string $name)
 	{
-		$name = ucwords(trim($name), '\\');
-		if (empty($name) || !self::validateName($name)) {
-			throw new \InvalidArgumentException("Invalid namespace $name");
+		if(!is_null($this->_pNamespace)){
+			throw new \UnexpectedValueException("namespace already set");
 		}
-		
-		$this->_pNamespace = $name;
+		$this->_pNamespace = self::parseName($name);
 		return $this;
 	}
 
-	public function uses(array $name)
+	/**
+	 * validate and append new class use reference in uses list
+	 * @param	string	$name	class reference fullname
+	 * @return	self			self class (used to chain init methods)
+	 * @throws	\UnexpectedValueException	if specified class not exists
+	 */
+	public function uses(string $name)
 	{
-		$name = ucwords(trim($name), '\\');
-		if (empty($name) || !self::validateName($name)) {
-			throw new \InvalidArgumentException("Invalid name $name");
-		}
-
+		$name = self::parseName($name);
 		if(!class_exists($name)) {
 			throw new \UnexpectedValueException("class $name not exists");
 		}
@@ -63,15 +80,16 @@ final class ClassFactory
 		return $this;
 	}
 
+	/**
+	 * validate and append new class in parents list
+	 * @param	string	$name	class reference fullname
+	 * @return	self			self class (used to chain init methods)
+	 * @throws	\UnexpectedValueException	if specified class not exists
+	 */
 	public function inherits(string $name)
 	{
-		//validations
-		$name = ucwords(trim($name), '\\');
-		if (empty($name) || !self::validateName($name)) {
-			throw new \InvalidArgumentException("Invalid name $name");
-		}
-
-		if (!class_exists($name)) {
+		$name = self::parseName($name);
+		if(!class_exists($name)) {
 			throw new \UnexpectedValueException("class $name not exists");
 		}
 
@@ -79,6 +97,12 @@ final class ClassFactory
 		return $this;
 	}
 
+	/**
+	 * set new class as final
+	 * @param	bool	$isFinal	(optional)final flag value
+	 * @return	self				self class (used to chain init methods)
+	 * @throws	\UnexpectedValueException	cannot set abstract class as final
+	 */
 	public function final(bool $isFinal = false)
 	{
 		if($isFinal && $this->_pIsAbstract) {
@@ -88,6 +112,12 @@ final class ClassFactory
 		return $this;
 	}
 
+	/**
+	 * set new class as abstract
+	 * @param	bool	$isAbstract	(optional)abstract flag value
+	 * @return	self				self class (used to chain init methods)
+	 * @throws	\UnexpectedValueException	cannot set final class as abstract
+	 */
 	public function abstract(bool $isAbstract = false)
 	{
 		if($isAbstract && $this->_pIsFinal) {
@@ -97,64 +127,7 @@ final class ClassFactory
 		return $this;
 	}
 
-	/////////////////////////////////////////////// output ////////////////////////////////////////////////////
-	public function getDefinition(bool $formatted = true): string
-	{
-		$complete_string = $this->_fDefinition['header'] 
-			. str_replace(
-				self::PLACEHOLDER, 
-				$this->_fDefinition['traits'] . $this->_fDefinition['methods'],
-				$this->_fDefinition['class']
-			);
-
-		return $formatted ? (new Formatter)($complete_string) : $complete_string;
-	}
-
-	public function __toString(): string
-	{
-		return ($this->evalDefinition())->__toString();
-	}
-
-	public function writeOnFile($path = null): bool
-	{
-		$separator = addcslashes(DIRECTORY_SEPARATOR, '\/\\');
-		//parse directory separators, does lowercase file path and set final slash if not exists
-		$file_path = preg_replace('/.*(?<!' . $separator . ')$/', $separator, $path ?: str_replace('\\', $separator, strtolower($this->_pNamespace))) . $this->_pName . '.php';
-		$new_file = fopen($file_path, 'w');
-		$written_bytes = fwrite($new_file, $this->getDefinition());
-		fclose($new_file);
-
-		return is_int($written_bytes);
-	}
-
-	/**
-	 * @param	mixed	$constructorParams	variable numbers of parameters
-	 * @return	object						instance of requested class
-	 * @throws	\BadMethodCallException		abstract classes cannot be instantiated
-	 */
-	public function getInstance(...$constructorParams): object
-	{
-		if($this->_pIsAbstract) {
-			throw new \BadMethodCallException('Cannot instantiate an object from an abstract class');
-		}
-		
-		return ($this->evalDefinition())->newInstance(...$constructorParams);
-	}
-
-	/**
-	 * @return	object						instance of requested class
-	 * @throws	\BadMethodCallException		abstract classes cannot be instantiated
-	 */
-	public function getInstanceWhitoutConstructor(): object
-	{
-		if($this->_pIsAbstract) {
-			throw new \BadMethodCallException('Cannot instantiate an object from an abstract class');
-		}
-
-		return ($this->evalDefinition())->newInstanceWithoutConstructor();
-	}
-
-	///////////////////////////////////////////////// main method //////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	/**
      * main creation class
 	 * @throws	\UnexpectedValueException	if no class name found
@@ -281,7 +254,7 @@ final class ClassFactory
 	 * @param	\ReflectionClass    $inheritedClass		parent class
      * @return  string  			$definition 		stringified php code of constructor
      **/
-	private function defineConstructor(string &$constructor, \ReflectionClass &$inheritedClass = null)
+	/*private function defineConstructor(string &$constructor, \ReflectionClass &$inheritedClass = null)
 	{
 		if ($inheritedClass && !$inheritedClass->isInterface()) {	
 			$inherited_constructor = $inheritedClass->getConstructor();
@@ -290,7 +263,7 @@ final class ClassFactory
 		} else {
 			$constructor = 'public function __construct(){}';
 		}
-	}
+	}*/
 
 	/**
      * defines all methods contained in the parent class
@@ -311,7 +284,7 @@ final class ClassFactory
      * @param   \ReflectionMethod   $method     parent method
      * @return  string              $definition stringified php code of passed method
      **/
-	private function defineMethod(\ReflectionClass &$class, \ReflectionMethod &$method): string
+	/*private function defineMethod(\ReflectionClass &$class, \ReflectionMethod &$method): string
 	{
 		$reflection_method = (new \ReflectionMethod($method->class, $method->name));
 
@@ -328,7 +301,7 @@ final class ClassFactory
 		$method_definition .= $this->_pIsAbstract ? ';' : '{}';
 
 		return $method_definition;
-	}
+	}*/
 
 	/**
      * defines specified method's parameters list with default values if found
@@ -338,7 +311,7 @@ final class ClassFactory
      * @param   bool              	$declaration	optionally add type and reference symbol to parameters (yes if declaration, no if call)
      * @return  string                              stringified php code of parameters
      **/
-	private function defineParams(\ReflectionClass &$class, \ReflectionMethod &$method, bool $defaultValues = true, bool $declaration = true): string
+	/*private function defineParams(\ReflectionClass &$class, \ReflectionMethod &$method, bool $defaultValues = true, bool $declaration = true): string
 	{
 		return trim(implode(', ', array_map(function ($param) use ($class, $defaultValues, $declaration) {
 			if ($param->hasType()) {
@@ -356,7 +329,7 @@ final class ClassFactory
 				'paramDefaultValue' => $declaration && $defaultValues && !$class->isInternal() && $param->isDefaultValueAvailable() ? (static::formatParamDefaultValue($param->getDefaultValue())) : ''
 			]);
 		}, (new \ReflectionMethod($method->class, $method->name))->getParameters())));
-	}
+	}*/
 
 	/**
      * parse default value of passed parameter
@@ -385,21 +358,60 @@ final class ClassFactory
 		return $this->_fClass;
 	}
 
-	/**
-	 * @param	string	$name		name to check
-	 * @return	bool	$is_valid	name is valid
-	 */
-	private static function validateName(string $name): bool
+	/////////////////////////////////////////////// output ////////////////////////////////////////////////////
+	public function getDefinition(bool $formatted = true): string
 	{
-		$is_valid = true;
-		$to_check = explode('\\', $name);
-		foreach($to_check as $word) {
-			$is_valid = preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/', $word) !== false;
-			if(!$is_valid) {
-				break;
-			}
+		$complete_string = $this->_fDefinition['header'] 
+			. str_replace(
+				self::PLACEHOLDER, 
+				$this->_fDefinition['traits'] . $this->_fDefinition['methods'],
+				$this->_fDefinition['class']
+			);
+
+		return $formatted ? (new Formatter)($complete_string) : $complete_string;
+	}
+
+	public function __toString(): string
+	{
+		return ($this->evalDefinition())->__toString();
+	}
+
+	public function writeOnFile($path = null): bool
+	{
+		$separator = addcslashes(DIRECTORY_SEPARATOR, '\/\\');
+		//parse directory separators, does lowercase file path and set final slash if not exists
+		$file_path = preg_replace('/.*(?<!' . $separator . ')$/', $separator, $path ?: str_replace('\\', $separator, strtolower($this->_pNamespace))) . $this->_pName . '.php';
+		$new_file = fopen($file_path, 'w');
+		$written_bytes = fwrite($new_file, $this->getDefinition());
+		fclose($new_file);
+
+		return is_int($written_bytes);
+	}
+
+	/**
+	 * @param	mixed	$constructorParams	variable numbers of parameters
+	 * @return	object						instance of requested class
+	 * @throws	\BadMethodCallException		abstract classes cannot be instantiated
+	 */
+	public function getInstance(...$constructorParams): object
+	{
+		if($this->_pIsAbstract) {
+			throw new \BadMethodCallException('Cannot instantiate an object from an abstract class');
+		}
+		
+		return ($this->evalDefinition())->newInstance(...$constructorParams);
+	}
+
+	/**
+	 * @return	object						instance of requested class
+	 * @throws	\BadMethodCallException		abstract classes cannot be instantiated
+	 */
+	public function getInstanceWhitoutConstructor(): object
+	{
+		if($this->_pIsAbstract) {
+			throw new \BadMethodCallException('Cannot instantiate an object from an abstract class');
 		}
 
-		return $is_valid;
+		return ($this->evalDefinition())->newInstanceWithoutConstructor();
 	}
 }
