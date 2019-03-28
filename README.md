@@ -3,7 +3,7 @@ Generates class definition code from specified attributes like namespace, parent
 Resulting code can be written on file o instantiated (still workin on).
 It's defined to be a composer module.
 
-##usage
+## usage
 (new ClassFactory('NewClassName'))
   ->namespace('Namespace\To\Assign')
   ->use('Another\Class\Or\Trait')
@@ -11,9 +11,9 @@ It's defined to be a composer module.
   ->inherit('Parent\Class\To\Implements')
   ->toFile('/optional/path');
   
-##structure
+## structure
 ClassFactory uses custom component's classes with specified toString methods that return each portion of php code.
 Generated code is automatically beautified by a builtin class.
 
-##todos
+## todos
 php-class-generator is still a work in progress
