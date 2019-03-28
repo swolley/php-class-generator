@@ -4,12 +4,12 @@ Resulting code can be written on file o instantiated (still workin on).
 It's defined to be a composer module.
 
 ## usage
-(new ClassFactory('NewClassName'))
-  ->namespace('Namespace\To\Assign')
-  ->use('Another\Class\Or\Trait')
-  ->inherit('Parent\Class\To\Extends')
-  ->inherit('Parent\Class\To\Implements')
-  ->toFile('/optional/path');
+(new ClassFactory('NewClassName'))<br/>
+&#09;->namespace('Namespace\To\Assign')<br/>
+&#09;->use('Another\Class\Or\Trait')<br/>
+&#09;->inherit('Parent\Class\To\Extends')<br/>
+&#09;->inherit('Parent\Class\To\Implements')<br/>
+&#09;->toFile('/optional/path');
   
 ## structure
 ClassFactory uses custom component's classes with specified toString methods that return each portion of php code.
