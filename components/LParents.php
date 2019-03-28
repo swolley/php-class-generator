@@ -3,8 +3,15 @@ namespace ClassGenerator\Components;
 
 class LParents extends AbstractList
 {
+	/**
+	 * @var	bool	$_extends	show if defining class is extending a class in list
+	 */
 	private $_extends = false;
 
+	/**
+	 * @param	$item	element to add in list
+	 * @return			data to be used by external methods (use and methods)
+	 */
 	public function add($item)
 	{
 		if(!is_string($item)) {
@@ -65,6 +72,9 @@ class LParents extends AbstractList
 		return $methods_list;
 	}
 
+	/**
+	 * custom toString	used for code export
+	 */
 	public function __toString()
 	{
 		if($this->count() === 0) {
@@ -80,6 +90,6 @@ class LParents extends AbstractList
 				$extends = ' extends ' . $class->getName();
 			}
 		}
-		return $extends . (count($implements) > 0 ? ' implements ' . implode(', ', $implements) : '') . PHP_EOL;
+		return $extends . (count($implements) > 0 ? ' implements ' . implode(', ', $implements) : '');
 	}
 }

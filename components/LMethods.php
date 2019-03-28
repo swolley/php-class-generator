@@ -3,6 +3,9 @@ namespace ClassGenerator\Components;
 
 class LMethods extends AbstractList
 {
+	/**
+	 * @param	mixed	$item	new method to add in list
+	 */
 	public function add($item)
 	{
 		if(!($item instanceof CMethod)) {
@@ -22,12 +25,15 @@ class LMethods extends AbstractList
 		}
 	}
 
+	/**
+	 * custom toString	used for code export
+	 */
 	public function __toString()
 	{
 		if($this->count() === 0) {
 			return '';
 		}
 
-		return implode(PHP_EOL, $this->_elements) . PHP_EOL;
+		return implode(PHP_EOL, $this->_elements);
 	}
 }

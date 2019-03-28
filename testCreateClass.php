@@ -34,12 +34,7 @@ $full_parent_name = '\PDO';
 
 //try{
 	$route_factory = (new ClassFactory('Pippo'))
-		->namespace('ClassGenerator')
-		->inherit('\PDO')
-		->inherit('\Iterator')
-		->inherit('\Throwable')
-		->final(true);
-		//->define();
+		->namespace('ClassGenerator');
 
 	//$to_string = $route_factory->__toString();
 	//$definition = $route_factory->getDefinition();

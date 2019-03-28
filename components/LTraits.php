@@ -18,12 +18,15 @@ class LTraits extends AbstractList
 		$this->_elements[] = new CTrait($item);
 	}
 
+	/**
+	 * custom toString	used for code export
+	 */
 	public function __toString()
 	{
 		if($this->count() === 0) {
 			return '';
 		}
 
-		return 'use ' . implode(', ', $this->_elements) . ';' . PHP_EOL;
+		return 'use ' . implode(', ', $this->_elements) . ';';
 	}
 }

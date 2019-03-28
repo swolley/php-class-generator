@@ -25,13 +25,15 @@ class LUses extends AbstractList
 		];
 	}
 
+	/**
+	 * custom toString	used for code export
+	 */
 	public function __toString()
 	{
 		if ($this->count() === 0) {
 			return '';
 		}
 
-		$prefix = 'use ';
 		$list = array_map(function ($use) {
 			return [
 				'name' => (string)$use,
@@ -43,21 +45,20 @@ class LUses extends AbstractList
 			return $a['name'] <=> $b['name'];
 		});
 		//namespace grouping
+		$prefix = "use \n\t";
 		$groups = [];
-		$cur_group = 'use ' . $list[0]['name'];
+		$cur_group = $prefix . $list[0]['name'];
 		for ($i = 1; $i < count($list); $i++) {
 			if ($list[$i]['path'][0] === $list[$i - 1]['path'][0]) {
-				$cur_group .= ',' . $list[$i]['name'];
+				$cur_group .= ",\n\t" . $list[$i]['name'];
 			} else {
 				$cur_group .= ';';
 				$groups[] = $cur_group;
-				$cur_group = 'use ' . $list[$i]['name'];
+				$cur_group = $prefix . $list[$i]['name'];
 			}
 		}
-
 		$groups[] = $cur_group . ';';
-
-		return implode('', $groups) . PHP_EOL;
+		return implode("\n", $groups);
 	}
 }
 

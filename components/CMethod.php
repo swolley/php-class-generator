@@ -3,9 +3,18 @@ namespace ClassGenerator\Components;
 
 class CMethod extends AbstractComponent
 {
-	protected $_dClass;
-	protected $_rMethod;
+	/**
+	 * @var	CClass				$_dClass	defining class attributes
+	 * @var	\ReflectionMethod	$_rMethod	new method reflection attributes
+	 */
+	protected
+		$_dClass,
+		$_rMethod;
 
+	/**
+	 * @param	\ReflectionMethod	$method			constructor to set
+	 * @param	CClass				$definingClass	defining new class attributes
+	 */
 	public function __construct(\ReflectionMethod &$method, CClass &$definingClass)
 	{
 		parent::__construct($method->name);
@@ -15,8 +24,8 @@ class CMethod extends AbstractComponent
 
 	/**
      * defines specified method's parameters list with default values if found
-     * @param   bool              	$defaultValues	optionally add default values to params if found
-     * @param   bool              	$declaration	optionally add type and reference symbol to parameters (yes if declaration, no if call)
+     * @param   bool              	$defaultValues	(optional) add default values to params if found
+     * @param   bool              	$declaration	(optional) add type and reference symbol to parameters (yes if declaration, no if call)
      * @return  string                              stringified php code of parameters
      **/
 	protected function defineParams(bool $defaultValues = true, bool $declaration = true): string
@@ -51,6 +60,9 @@ class CMethod extends AbstractComponent
 		return str_replace(PHP_EOL, '', var_export($param, true));
 	}
 
+	/**
+	 * custom toString	used for code export
+	 */
 	public function __toString()
 	{
 		//removes abstract from modifier because implemented if not creating another abstract class

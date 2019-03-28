@@ -9,7 +9,8 @@ use
 	ClassGenerator\Components\LMethods,
 	ClassGenerator\Components\LParents,
 	ClassGenerator\Components\LTraits,
-	ClassGenerator\Components\LUses;
+	ClassGenerator\Components\LUses,
+	ClassGenerator\Utils\Formatter;
 
 
 /**
@@ -90,26 +91,14 @@ final class ClassFactory
 		}
 	}
 
-	/////////////////////////////////////////////// output ////////////////////////////////////////////////////
-	/*public function getDefinition(bool $formatted = true): string
-	{
-		$complete_string = $this->_fDefinition['header'] 
-			. str_replace(
-				self::PLACEHOLDER, 
-				$this->_fDefinition['traits'] . $this->_fDefinition['methods'],
-				$this->_fDefinition['class']
-			);
-
-		return $formatted ? (new Formatter)($complete_string) : $complete_string;
-	}*/
-
 	public function toFile($path = null): bool
 	{
 		$separator = addcslashes(DIRECTORY_SEPARATOR, '\/\\');
 		//parse directory separators, does lowercase file path and set final slash if not exists
 		$file_path = preg_replace('/.*(?<!' . $separator . ')$/', $separator, $path ?: str_replace('\\', $separator, strtolower($this->_pNamespace))) . $this->_pClass->getName() . '.php';
 		$new_file = fopen($file_path, 'w');
-		$written_bytes = fwrite($new_file, $this);
+		$formatted_code = (new Formatter)((string)$this);
+		$written_bytes = fwrite($new_file, $formatted_code);
 		fclose($new_file);
 
 		return is_int($written_bytes);
@@ -140,9 +129,9 @@ final class ClassFactory
 			$this->_pUses .
 			$this->_pClass . 
 			$this->_pParents .
-			'{' . PHP_EOL .
+			'{' .
 			$this->_pTraits .
 			$this->_pMethods .
-			'}' . PHP_EOL;
+			'}';
 	}
 }
