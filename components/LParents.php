@@ -37,7 +37,14 @@ class LParents extends AbstractList
 		];
 	}
 	
-	private function setParentClass(string $name)
+	/**
+	 * creates new class and appends it into list
+	 * @param 	string				$name	new class name
+	 * @return	\ReflectionClass	$class	created class
+	 * @throws	\UnexpectedValueException	if specified class is final or trait
+	 * @throws	\UnexpectedValueException	if defining class is already extended from another class
+	 */
+	private function setParentClass(string $name): \ReflectionClass
 	{
 		$class = new \ReflectionClass($name);
 		//throws if parent class is final because cannot be inherited
@@ -56,6 +63,11 @@ class LParents extends AbstractList
 		return $class;
 	}
 
+	/**
+	 * returns implementable methods of created parent class
+	 * @param	\ReflectionClass	$class			added class reflection data
+	 * @return	array				$method_list	reflection method's list
+	 */
 	private function getInheritableMethods(\ReflectionClass &$class): array
 	{
 		$methods_list = [];

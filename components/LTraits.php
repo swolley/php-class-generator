@@ -3,6 +3,12 @@ namespace ClassGenerator\Components;
 
 class LTraits extends AbstractList
 {
+	/**
+	 * adds a new trait to elements list
+	 * @param	string	$item	new trait name
+	 * @throws	\UnexpectedValueException	invalid name is passed
+	 
+	 */
 	public function add($item)
 	{
 		if(!is_string($item)) {

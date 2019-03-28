@@ -3,6 +3,9 @@ namespace ClassGenerator\Utils;
 
 class Formatter
 {
+	/**
+	 * syntax symbols' arrays
+	 */
 	const
 		OPERATORS = ['=', '.', '+', '-', '*', '/', '%', '||', '&&', '+=', '-=', '*=', '/=', '.=', '%=', '==', '!=', '<=', '>=', '<', '>', '===', '!=='],
 		IMPORT_STATEMENTS = [T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE],
@@ -14,6 +17,10 @@ class Formatter
 		$RETURN_BEFORE = [T_NAMESPACE, T_FINAL],
 		$RETURN_AFTER = [';', '<?php', '{'];
 
+	/**
+	 * @param	string	$code	unformatted code
+	 * @return	string			parsed code
+	 */
 	public function __invoke(string $code): string
 	{
 		if (mb_substr($code, 0, 5) !== '<?php') {

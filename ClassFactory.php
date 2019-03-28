@@ -20,9 +20,13 @@ use
 final class ClassFactory
 {
 	/**
-	 * @var	CClass	$_pClass	class name and modifier definition
-	 * @var CNamespace	$_pNamespace	namespace definition
-	 * @var	
+	 * @var	CClass				$_pClass		class name and modifier definition
+	 * @var CNamespace			$_pNamespace	namespace definition
+	 * @var	LUses				$_pUses			list of uses
+	 * @var	LTraits				$_pTraits		list of traits to use
+	 * @var	LParents			$_pParents		list of parent classes
+	 * @var	LMethods			$_pMethods		list of	inherited methods to implement
+	 * @var	\ReflectionClass	$_fReflection	reflection class created from generated code
 	 */
 	private
 		/*pre eval*/
@@ -32,10 +36,13 @@ final class ClassFactory
 		$_pTraits,
 		$_pParents,
 		$_pMethods,
-
 		/*post eval*/
 		$_fReflection;
 
+	/**
+	 * create class factory with new class method
+	 * @param	string	$name	defining class name
+	 */
 	public function __construct(string $name)
 	{
 		$this->_pClass = new CClass($name);
@@ -45,12 +52,22 @@ final class ClassFactory
 		$this->_pMethods = new LMethods();
 	}
 
+	/**
+	 * adds namespace to defining class
+	 * @param	string			$name	namespace name
+	 * @return	ClassFactory	$this	self class (used to chain defining methods)
+	 */
 	public function namespace(string $name)
 	{
 		$this->_pNamespace = new CNamespace($name);
 		return $this;
 	}
 
+	/**
+	 * add a use voice to defining class
+	 * @param	string			$name	use name
+	 * @return	ClassFactory	$this	self class (used to chain defining methods)
+	 */
 	public function use(string $name)
 	{
 		$created = $this->_pUses->add($name);
@@ -60,6 +77,11 @@ final class ClassFactory
 		return $this;
 	}
 
+	/**
+	 * adds a class to be inherited to the defining class
+	 * @param	string			$name	parent class name
+	 * @return	ClassFactory	$this	self class (used to chain defining methods)
+	 */
 	public function inherit(string $name)
 	{
 		$new_found = $this->_pParents->add($name);
@@ -71,27 +93,34 @@ final class ClassFactory
 		return $this;
 	}
 
+	/**
+	 * set defining class final modifier
+	 * @param	bool			$isFinal	set class final attribute
+	 * @return	ClassFactory	$this		self class (used to chain defining methods)
+	 */
 	public function final(bool $isFinal = false)
 	{
 		$this->_pClass->setFinal($isFinal);
 		return $this;
 	}
 
+	/**
+	 * set defining class abstract modifier
+	 * @param	bool			$isAbstract	set class abstract attribute
+	 * @return	ClassFactory	$this		self class (used to chain defining methods)
+	 */
 	public function abstract(bool $isAbstract = false)
 	{
 		$this->pClass->setAbstract($isAbstract);
 		return $this;
 	}
 
-	private function eval()
-	{
-		if(!$this->_fReflection) {
-			eval((string)$this);
-			$this->_fClass = new \ReflectionClass($this->_pNamespace->getName() . '\\' . $this->_pClass->getName());
-		}
-	}
-
-	public function toFile($path = null): bool
+	/**
+	 * write code into specified file path or extract it from namespace
+	 * @param 	string	$path	(optional) path where new file'll be saved
+	 * @return	bool			if file creation ended correctly
+	 */
+	public function toFile(string $path = null): bool
 	{
 		$separator = addcslashes(DIRECTORY_SEPARATOR, '\/\\');
 		//parse directory separators, does lowercase file path and set final slash if not exists
@@ -103,6 +132,18 @@ final class ClassFactory
 
 		return is_int($written_bytes);
 	}
+
+	/**
+	 * eval written code and instantiate a reflection class
+	 */
+	/*private function eval()
+	{
+		//
+		if(!$this->_fReflection) {
+			eval((string)$this);
+			$this->_fClass = new \ReflectionClass($this->_pNamespace->getName() . '\\' . $this->_pClass->getName());
+		}
+	}*/
 
 	/*public function getInstance(...$constructorParams): object
 	{
@@ -122,6 +163,9 @@ final class ClassFactory
 		return ($this->evalDefinition())->newInstanceWithoutConstructor();
 	}*/
 
+	/**
+	 * custom toString used for final code creation
+	 */
 	public function __toString()
 	{
 		return 

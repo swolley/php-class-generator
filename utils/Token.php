@@ -3,10 +3,17 @@ namespace ClassGenerator\Utils;
 
 class Token
 {
+	/**
+	 * @var	int		$type		token code
+	 * @var	string	$contents	token content
+	 */
 	public
 		$type,
 		$contents;
 
+	/**
+	 * @param array	$rawToken	recognized token data
+	 */
 	public function __construct($rawToken)
 	{
 		if (is_array($rawToken)) {

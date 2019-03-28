@@ -3,6 +3,12 @@ namespace ClassGenerator\Components;
 
 class LUses extends AbstractList
 {
+	/**
+	 * adds new class full name to element's list
+	 * @param	string	$item	class name
+	 * @return	array			new added class data for external methods (name, isTrait)
+	 * @throws	\UnexpectedValueException	invalid type name is passed
+	 */
 	public function add($item)
 	{
 		if (!is_string($item)) {
@@ -61,4 +67,3 @@ class LUses extends AbstractList
 		return implode("\n", $groups);
 	}
 }
-
