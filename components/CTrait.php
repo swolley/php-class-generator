@@ -1,7 +1,7 @@
 <?php
 namespace ClassGenerator\Components;
 
-class CNamespace extends AbstractComponent
+class CTrait extends AbstractComponent
 {
 	public function __construct(string $name)
 	{
@@ -10,6 +10,6 @@ class CNamespace extends AbstractComponent
 
 	public function __toString()
 	{
-		return "namespace {$this->_name};" . PHP_EOL;
+		return $this->_name;
 	}
 }

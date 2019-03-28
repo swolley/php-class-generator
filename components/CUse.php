@@ -5,11 +5,16 @@ class CUse extends AbstractComponent
 {
 	public function __construct(string $name)
 	{
-		parent::__construct($name);
+		parent::__construct($name, true);
+	}
+
+	public function split()
+	{
+		return explode('\\',$this->_name);
 	}
 
 	public function __toString()
 	{
-		return 'use ' . $this->_name . ';';
+		return $this->_name;
 	}
 }

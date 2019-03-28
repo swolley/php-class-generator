@@ -1,41 +1,23 @@
 <?php
 namespace ClassGenerator\Components;
 
-class ParentList
+class LParents extends AbstractList
 {
-	private $_classes = [];
 	private $_extends = false;
 
-	public function count(): int
+	public function add($item)
 	{
-		return count($this->_classes);
-	}
-
-	public function __toString()
-	{
-		$extends = '';
-		$implements = [];
-
-		foreach($this->_classes as $class) {
-			if($class->isInterface()) {
-				$implements[] = $class->getName();
-			} else {
-				$extends = 'extends' . $class->getName() . ' ';
-			}
+		if(!is_string($item)) {
+			throw new \UnexpectedValueException('Invalid parent type');
 		}
 
-		return $extends . (count($implements) > 0 ? 'implements ' . implode(', ', $implements) : '');
-	}
-
-	public function add(string $name)
-	{
-		foreach($this->_classes as $parent) {
-			if($parent->getName() === $name) {
+		foreach($this->_elements as $parent) {
+			if($parent->getName() === $item) {
 				return false;
 			}
 		}
 
-		$class = $this->setParentClass($name);
+		$class = $this->setParentClass($item);
 		$methods = $this->getInheritableMethods($class);
 		
 		//adds namespace in use list if not already in
@@ -63,7 +45,7 @@ class ParentList
 			$this->_extends = true;
 		}
 		
-		$this->_classes[] = $class;
+		$this->_elements[] = $class;
 		return $class;
 	}
 
@@ -80,8 +62,24 @@ class ParentList
 			$methods_list = $class->getMethods();
 		}
 
-		return array_map(function($method) use($class) {
-			return $method->isConstructor() ? new CConstructor($class, $method) : new CMethod($class, $method);
-		}, $methods_list);
+		return $methods_list;
+	}
+
+	public function __toString()
+	{
+		if($this->count() === 0) {
+			return '';
+		}
+
+		$extends = '';
+		$implements = [];
+		foreach($this->_elements as $class) {
+			if($class->isInterface()) {
+				$implements[] = $class->getName();
+			} else {
+				$extends = ' extends ' . $class->getName();
+			}
+		}
+		return $extends . (count($implements) > 0 ? ' implements ' . implode(', ', $implements) : '') . PHP_EOL;
 	}
 }

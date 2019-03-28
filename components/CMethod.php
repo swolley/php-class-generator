@@ -3,28 +3,14 @@ namespace ClassGenerator\Components;
 
 class CMethod extends AbstractComponent
 {
-	protected $_reflection;
+	protected $_dClass;
+	protected $_rMethod;
 
-	public function __construct(\ReflectionClass &$class, \ReflectionMethod &$method)
+	public function __construct(\ReflectionMethod &$method, CClass &$definingClass)
 	{
 		parent::__construct($method->name);
-		$this->_rClass = $class;
+		$this->_dClass = $definingClass;
 		$this->_rMethod = $method;
-	}
-
-	public function __toString()
-	{
-		//removes abstract from modifier because implemented if not creating another abstract class
-		$modifiers = implode(' ', \Reflection::getModifierNames($this->_rMethod->getModifiers()));
-		$modifiers =  $this->_pIsAbstract ? $modifiers : str_replace('abstract ', '', $modifiers);
-		//defines method signature
-		$method_definition = $modifiers . ' function ' . $this->_rMethod->name . '(' . $this->defineParams() . ')';
-		//appends return type if exists
-		if($this->_reflection->hasReturnType()) {
-			$method_definition .= ': ' . $this->_rMethod->getReturnType();
-		}
-		
-		return $method_definition .= $this->_pIsAbstract ? ';' : '{}';
 	}
 
 	/**
@@ -39,11 +25,12 @@ class CMethod extends AbstractComponent
 			if ($param->hasType()) {
 				$type = $param->getType();
 				if (!$type->isBuiltin()) {
+					//FIXME e questo??
 					$this->_pUses[] = $type->__toString();
 				}
 			}
 
-			$is_class_internal = $this->_rClass->isInternal();
+			$is_class_internal = $this->_rMethod->getDeclaringClass()->isInternal();
 			return implode('', [
 				'paramType' => $declaration && $param->hasType() ? $param->getType() . ' ' : '',
 				'isPassedByReference' => $declaration && $param->isPassedByReference() ? '&' : '',
@@ -62,5 +49,20 @@ class CMethod extends AbstractComponent
 	protected static function formatParamDefaultValue($param): string
 	{
 		return str_replace(PHP_EOL, '', var_export($param, true));
+	}
+
+	public function __toString()
+	{
+		//removes abstract from modifier because implemented if not creating another abstract class
+		$modifiers = implode(' ', \Reflection::getModifierNames($this->_rMethod->getModifiers()));
+		$modifiers =  $this->_dClass->isAbstract() ? $modifiers : str_replace('abstract ', '', $modifiers);
+		//defines method signature
+		$method_definition = $modifiers . ' function ' . $this->_rMethod->name . '(' . $this->defineParams() . ')';
+		//appends return type if exists
+		if($this->_rMethod->hasReturnType()) {
+			$method_definition .= ': ' . $this->_rMethod->getReturnType();
+		}
+		
+		return $method_definition .= $this->_dClass->isAbstract() ? ';' : '{}';
 	}
 }

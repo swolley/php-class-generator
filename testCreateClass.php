@@ -33,16 +33,18 @@ $full_parent_name = '\PDO';
 
 
 //try{
-	$route_factory = (new ClassFactory($new_class_name))
-		->namespace($namespace)
-		->inherit($full_parent_name)
-		->final(true)
-		->define();
+	$route_factory = (new ClassFactory('Pippo'))
+		->namespace('ClassGenerator')
+		->inherit('\PDO')
+		->inherit('\Iterator')
+		->inherit('\Throwable')
+		->final(true);
+		//->define();
 
 	//$to_string = $route_factory->__toString();
 	//$definition = $route_factory->getDefinition();
 	//$instance = $route_factory->getInstanceWhitoutConstructor();
-	//$file = $route_factory->writeOnFile('./');
+	$route_factory->toFile('./');
 	
 	//exit("SUCCESS: Class {$new_class_name} created" . PHP_EOL);
 //} catch(\Exception $ex) {
