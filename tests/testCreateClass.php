@@ -1,13 +1,13 @@
 <?php
-namespace ClassGenerator;
-require_once './vendor/autoload.php';
-require_once './ClassFactory.php';
-//$handle = fopen ('php://stdin','r');
+require_once __DIR__ . '/../vendor/autoload.php';
 
-$new_class_name = "Pippo";
-$parent = '';
-$namespace = 'ClassGenerator';
-$full_parent_name = '\PDO';
+use ClassGenerator\ClassFactory;
+
+//$handle = fopen ('php://stdin','r');
+//$new_class_name = "Pippo";
+//$parent = '';
+//$namespace = 'ClassGenerator';
+//$full_parent_name = '\PDO';
 /////////////////////////////////// class name ////////////////////////////////////////
 
 // do {
@@ -34,7 +34,8 @@ $full_parent_name = '\PDO';
 
 //try{
 	$route_factory = (new ClassFactory('Pippo'))
-		->namespace('ClassGenerator');
+		->namespace('ClassGenerator')
+		->inherit('\PDO');
 
 	//$to_string = $route_factory->__toString();
 	//$definition = $route_factory->getDefinition();

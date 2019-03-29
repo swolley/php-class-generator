@@ -13,9 +13,9 @@
     },
     "autoload": {
         "psr-4": {
-			"ClassGenerator\\": "/",
-			"ClassGenerator\\Components\\": "components/",
-			"ClassGenerator\\Utils\\": "utils/"
+			"ClassGenerator\\": "src/",
+			"ClassGenerator\\Components\\": "src/components/",
+			"ClassGenerator\\Utils\\": "src/utils/"
         }
     }
 }
