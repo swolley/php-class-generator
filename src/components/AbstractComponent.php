@@ -1,7 +1,7 @@
 <?php
-namespace ClassGenerator\Components;
+namespace Swolley\ClassGenerator\Components;
 
-use ClassGenerator\Utils\TraitValidator;
+use Swolley\ClassGenerator\Utils\TraitValidator;
 
 /**
  * @uses	TraitValidator	name parser and validator;

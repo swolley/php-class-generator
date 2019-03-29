@@ -1,5 +1,5 @@
 <?php
-namespace ClassGenerator\Utils;
+namespace Swolley\ClassGenerator\Utils;
 
 trait TraitValidator
 {

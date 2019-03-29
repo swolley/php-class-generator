@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use ClassGenerator\ClassFactory;
+use Swolley\ClassGenerator\ClassFactory;
 
 //$handle = fopen ('php://stdin','r');
 //$new_class_name = "Pippo";

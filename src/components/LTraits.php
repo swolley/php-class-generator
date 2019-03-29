@@ -1,5 +1,5 @@
 <?php
-namespace ClassGenerator\Components;
+namespace Swolley\ClassGenerator\Components;
 
 class LTraits extends AbstractList
 {

@@ -1,5 +1,5 @@
 <?php
-namespace ClassGenerator\Components;
+namespace Swolley\ClassGenerator\Components;
 
 class CClass extends AbstractComponent
 {

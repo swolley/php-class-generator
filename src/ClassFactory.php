@@ -1,16 +1,16 @@
 <?php
-namespace ClassGenerator;
+namespace Swolley\ClassGenerator;
 
 use 
-	ClassGenerator\Components\CClass,
-	ClassGenerator\Components\CConstructor,
-	ClassGenerator\Components\CMethod,
-	ClassGenerator\Components\CNamespace,
-	ClassGenerator\Components\LMethods,
-	ClassGenerator\Components\LParents,
-	ClassGenerator\Components\LTraits,
-	ClassGenerator\Components\LUses,
-	ClassGenerator\Utils\Formatter;
+	Swolley\ClassGenerator\Components\CClass,
+	Swolley\ClassGenerator\Components\CConstructor,
+	Swolley\ClassGenerator\Components\CMethod,
+	Swolley\ClassGenerator\Components\CNamespace,
+	Swolley\ClassGenerator\Components\LMethods,
+	Swolley\ClassGenerator\Components\LParents,
+	Swolley\ClassGenerator\Components\LTraits,
+	Swolley\ClassGenerator\Components\LUses,
+	Swolley\ClassGenerator\Utils\Formatter;
 
 
 /**
