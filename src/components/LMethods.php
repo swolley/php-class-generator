@@ -25,6 +25,17 @@ class LMethods extends AbstractList
 		}
 	}
 
+	public function getMethod(string $methodName): \ReflectionMethod
+	{
+		foreach ($this->_elements as $method) {
+			if($method->getName === $methodName) {
+				return $method;
+			}
+		}
+
+		return null;
+	}
+
 	/**
 	 * custom toString	used for code export
 	 */

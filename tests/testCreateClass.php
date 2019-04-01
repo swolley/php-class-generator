@@ -41,6 +41,9 @@ use Swolley\ClassGenerator\ClassFactory;
 	//$definition = $route_factory->getDefinition();
 	//$instance = $route_factory->getInstanceWhitoutConstructor();
 	$route_factory->toFile('./');
+
+	$route_factory->redefineMethod('query', function($a, $b, $c){ echo $a, $b, $c;});
+	$route_factory->redefineMethod('query', '$a, $b, $c', 'echo $a, $b, $c;');
 	
 	//exit("SUCCESS: Class {$new_class_name} created" . PHP_EOL);
 //} catch(\Exception $ex) {

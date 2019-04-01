@@ -7,7 +7,7 @@ class CConstructor extends CMethod
 	 * @param	\ReflectionMethod	$method			constructor to set
 	 * @param	CClass				$definingClass	defining new class attributes
 	 */
-	public function __construct(\ReflectionMethod &$method, CClass &$definingClass)
+	public function __construct(\ReflectionMethod $method, CClass &$definingClass)
 	{
 		parent::__construct($method, $definingClass);
 	}

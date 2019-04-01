@@ -15,7 +15,7 @@ class CMethod extends AbstractComponent
 	 * @param	\ReflectionMethod	$method			constructor to set
 	 * @param	CClass				$definingClass	defining new class attributes
 	 */
-	public function __construct(\ReflectionMethod &$method, CClass &$definingClass)
+	public function __construct(\ReflectionMethod $method, CClass &$definingClass)
 	{
 		parent::__construct($method->name);
 		$this->_dClass = $definingClass;
@@ -28,7 +28,7 @@ class CMethod extends AbstractComponent
      * @param   bool              	$declaration	(optional) add type and reference symbol to parameters (yes if declaration, no if call)
      * @return  string                              stringified php code of parameters
      **/
-	protected function defineParams(bool $defaultValues = true, bool $declaration = true): string
+	public function defineParams(bool $defaultValues = true, bool $declaration = true): string
 	{
 		return trim(implode(', ', array_map(function ($param) use ($defaultValues, $declaration) {
 			if ($param->hasType()) {
