@@ -27,6 +27,7 @@ final class ClassFactory
 	 * @var	LParents			$_pParents		list of parent classes
 	 * @var	LMethods			$_pMethods		list of	inherited methods to implement
 	 * @var	\ReflectionClass	$_fReflection	reflection class created from generated code
+	 * @var	object				$_fInstance		instance of defined class
 	 */
 	private
 		/*pre eval*/
@@ -37,7 +38,8 @@ final class ClassFactory
 		$_pParents,
 		$_pMethods,
 		/*post eval*/
-		$_fReflection;
+		$_fReflection,
+		$_fInstance;
 
 	/**
 	 * create class factory with new class method
@@ -138,7 +140,6 @@ final class ClassFactory
 	 */
 	/*private function eval()
 	{
-		//
 		if(!$this->_fReflection) {
 			eval((string)$this);
 			$this->_fClass = new \ReflectionClass($this->_pNamespace->getName() . '\\' . $this->_pClass->getName());
@@ -156,11 +157,27 @@ final class ClassFactory
 
 	/*public function getInstanceWhitoutConstructor(): object
 	{
-		if($this->_pIsAbstract) {
+		if($this->_pClass->_isAbstract) {
 			throw new \BadMethodCallException('Cannot instantiate an object from an abstract class');
 		}
 
 		return ($this->evalDefinition())->newInstanceWithoutConstructor();
+	}*/
+
+	/*public function redefineMethod(string $methodName, string $code)
+	{
+		if(!$this->_fInstance) {
+			if(!$this->_fReflection) {
+				$this->eval();
+			}
+			$this->_fInstance = $this->getInstanceWhitoutConstructor();
+		}
+
+		$method = $this->_pMethods->getMethod($methodName);
+		if($method) {
+			$params = $method->defineParams();
+			runkit_method_redefine($this->_pClass->getName(), $methodName, $contents[0], RUNKIT_ACC_PUBLIC [, string $doc_comment = NULL ]] );
+		}
 	}*/
 
 	/**
